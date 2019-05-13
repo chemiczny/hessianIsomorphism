@@ -37,6 +37,8 @@ class Function:
         self.variables2nodes = {}
         self.outputs2nodes = {}
         
+        self.key2uniqueOperatorNodes = {}
+        
         self.operators = { }
         
         if source and lastLine:
@@ -49,7 +51,7 @@ class Function:
         
     def read(self, source, lastLine):
         name = lastLine.replace("void" , "")
-        name = lastLine.replace("(", "")
+        name = name.replace("(", "")
         name = name.strip()
         self.name = name
         
@@ -611,10 +613,12 @@ class CppParser:
         
     def parse(self, testFilename = "" ):
         
+#        if testFilename:
         testFile = open(testFilename ,'w')
         
-        testFile.write("include <cmath>\n")
-
+        testFile.write("#include <cmath>\n")
+        testFile.write("#include <iostream>\n")
+        testFile.write("#include <cstdlib>\n")
         testFile.write("namespace {\n")
         testFile.write("   const double Pi = M_PI;\n")
         testFile.write("} \n\n")
@@ -643,7 +647,6 @@ class CppParser:
             
         testFile.write(line)
         cppF.close()
-        
         
         newFunction.writeFunctionFromGraph( "dupa" , testFile )
         
@@ -690,6 +693,42 @@ class CppParser:
         testFile.write(newFunction.name+"( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, hxx, hxy, hxz, hyx, hyy,hyz, hzx, hzy, hzz );\n")
         testFile.write("dupa( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, hTestxx, hTestxy, hTestxz, hTestyx, hTestyy,hTestyz, hTestzx, hTestzy, hTestzz );\n")
         
+        testFile.write("""
+        for ( int i = 0; i < 27; i++) {
+          double diffxx = std::abs(hxx[i] - hTestxx[i]);
+          double diffxy = std::abs(hxy[i] - hTestxy[i]);
+          double diffxz = std::abs(hxz[i] - hTestxz[i]);
+          
+          double diffyx = std::abs(hyx[i] - hTestyx[i]);
+          double diffyy = std::abs(hyy[i] - hTestyy[i]);
+          double diffyz = std::abs(hyz[i] - hTestyz[i]);
+          
+          double diffzx = std::abs(hzx[i] - hTestzx[i]);
+          double diffzy = std::abs(hzy[i] - hTestzy[i]);
+          double diffzz = std::abs(hzz[i] - hTestzz[i]);
+          
+          if ( diffxx > 0.0001 )
+            std::cout<<"ERROR XX !!! "<<hxx[i]<<" "<<hTestxx[i]<<std::endl;
+          if ( diffxy > 0.0001 )
+            std::cout<<"ERROR XY !!! "<<hxy[i]<<" "<<hTestxy[i]<<std::endl;
+          if ( diffxz > 0.0001 )
+            std::cout<<"ERROR XZ !!! "<<hxz[i]<<" "<<hTestxz[i]<<std::endl;
+            
+          if ( diffyx > 0.0001 )
+            std::cout<<"ERROR YX !!! "<<hyz[i]<<" "<<hTestyx[i]<<std::endl;
+          if ( diffyy > 0.0001 )
+            std::cout<<"ERROR YY !!! "<<hyy[i]<<" "<<hTestyy[i]<<std::endl;
+          if ( diffyz > 0.0001 )
+            std::cout<<"ERROR YZ !!! "<<hyz[i]<<" "<<hTestyz[i]<<std::endl;
+            
+          if ( diffzx > 0.0001 )
+            std::cout<<"ERROR ZX !!! "<<hzx[i]<<" "<<hTestzx[i]<<std::endl;
+          if ( diffzy > 0.0001 )
+            std::cout<<"ERROR ZY !!! "<<hzy[i]<<" "<<hTestzy[i]<<std::endl;
+          if ( diffzz > 0.0001 )
+            std::cout<<"ERROR ZZ !!! "<<hzz[i]<<" "<<hTestzz[i]<<std::endl;
+          }                       
+                       """)
         
         testFile.write("return 0;\n}\n")
         

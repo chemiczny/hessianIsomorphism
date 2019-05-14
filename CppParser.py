@@ -8,6 +8,8 @@ Created on Thu Apr 11 15:58:16 2019
 import networkx as nx
 import shlex
 import matplotlib.pyplot as plt
+from time import time
+from copy import deepcopy
 #import sys
 
 def isfloat(value):
@@ -300,8 +302,11 @@ class Function:
     def insertNewOperator(self, operatorName, inputs, fix ):
 #        print("Dodaje wierzcholek: ", operatorName, "wejscia", inputs)
         if not operatorName in self.operators:
-            self.operators[operatorName] = -1
+            self.operators[operatorName] = -1           
             
+        key = "_".join(sorted(inputs)) + "_"+operatorName
+        if key in self.key2uniqueOperatorNodes:
+            return self.key2uniqueOperatorNodes[key]
             
         inp2fold = {}
         
@@ -314,6 +319,7 @@ class Function:
         self.operators[operatorName] += 1
         
         nodeName = operatorName + str( self.operators[operatorName] )
+        self.key2uniqueOperatorNodes[key] = nodeName
         self.graph.add_node(nodeName, variable = None, kind = "middle", operator = operatorName, fix = fix, symmetric = True)
         
         for inp in inp2fold:
@@ -326,10 +332,14 @@ class Function:
         if not operatorName in self.operators:
             self.operators[operatorName] = -1
             
+        key = "_".join(inputs) + "_"+operatorName
+        if key in self.key2uniqueOperatorNodes:
+            return self.key2uniqueOperatorNodes[key]
         
         self.operators[operatorName] += 1
         
         nodeName = operatorName + str( self.operators[operatorName] )
+        self.key2uniqueOperatorNodes[key] = nodeName
         self.graph.add_node(nodeName, variable = None, kind = "middle", operator = operatorName, fix = fix, symmetric = False)
         
         onlyUnique = 0 == len(set(inputs))-len(inputs)
@@ -525,6 +535,171 @@ class Function:
         internalExpression.append(nextToken)
         return internalExpression +  self.getNextNode( exprList[1:] )
     
+    def findClusters(self):
+        clusterFound = True
+        
+        searchingStart = time()
+        maxClusterFound = 5000
+        clusterIt = 0
+        maxClusterSize = 0
+        sortedNodes = list(reversed(list( nx.topological_sort(self.graph) )))
+        lastNode = None
+        
+        while clusterFound:
+            clusterFound = False
+            
+            for node in sortedNodes:
+                if lastNode != None and node != lastNode:
+                    continue
+                else:
+                    lastNode = None
+                
+                nodeType = self.graph.nodes[node]["kind"]
+                if nodeType != "middle":
+                    continue
+                
+                operator = self.graph.nodes[node]["operator"]
+                
+                if operator!= "+" and operator != "*":
+                    continue
+                
+                newCluster = self.findMaximumCluster(node, operator, sortedNodes)
+                
+                if len(newCluster) > 1:
+                    clusterFound = True
+                    maxClusterSize = max(maxClusterSize, len(newCluster))
+                    for node2remove in newCluster[1:]:
+                        sortedNodes.remove(node2remove)
+                    lastNode = newCluster[0]
+                    
+                    self.transformCluster(newCluster)
+                    break
+                
+            if clusterFound:
+#                print("znaleziony kluster: ",len(newCluster))
+                clusterIt += 1
+                if clusterIt % 500 == 0:
+                    print(clusterIt)
+                
+            if clusterIt > maxClusterFound:
+                break
+                
+        timeTaken = time() - searchingStart
+        print("znaleziono: ", clusterIt, " klastrow")
+        print("najwiekszy: ", maxClusterSize)
+        print("czas: ", timeTaken)
+                
+    def transformCluster(self, clusterList):
+        clusterList = clusterList[1:]
+        clusterList.reverse()
+        
+        for node in clusterList:
+            nodePredecessors = list(self.graph.predecessors( node))
+            for pred in nodePredecessors:
+                edgeFold = self.graph[pred][node]["fold"]
+                
+                nodeSuccesors = list(self.graph.successors(node))
+                
+                for succ in nodeSuccesors:
+                    if succ in self.graph[pred]:
+                        self.graph[pred][succ]["fold"] += edgeFold
+                    else:
+                        self.graph.add_edge(pred, succ, fold = edgeFold )
+                    
+            self.graph.remove_node(node)
+        
+        
+        
+                
+    def findMaximumCluster(self, node, operator, sortedNodes):
+        confirmedCluster = set([node])
+        clusterList = [ node ]
+        
+        queue = set(self.graph.predecessors( node))
+        
+        while queue:
+            element, queue = self.getNextElement(sortedNodes, queue)
+            
+            nodeType = self.graph.nodes[element]["kind"]
+            
+            if nodeType != "input":            
+                elementOperator = self.graph.nodes[element]["operator"]
+                if elementOperator != operator:
+                    continue
+            
+            elementSuccesors = set( self.graph.successors( element) )
+            notAcceptableSuccesors = elementSuccesors - confirmedCluster
+#            print(len(notAcceptableSuccesors))
+            if notAcceptableSuccesors:
+#                print("odrzucam")
+                continue
+            
+            previousLen = len(confirmedCluster)
+            confirmedCluster.add(element)
+            actualLen = len(confirmedCluster)
+            
+            if previousLen < actualLen:
+                clusterList.append(element)
+            
+            queue |= set( self.graph.predecessors( element ) )
+            
+        return clusterList
+    
+    def getNextElement(self, sortedNodes, queue):
+        for node in sortedNodes:
+            if node in queue:
+                queue.remove(node)
+                return node, queue
+            
+    def rebuildGraph(self):
+        oldGraph = deepcopy(self.graph)
+        oldVariables2nodes = deepcopy(self.variables2nodes)
+        
+        self.graph = nx.DiGraph()
+        self.variables2nodes = {}
+        self.key2uniqueOperatorNodes = {}
+        self.operators = { }
+        
+        nodes = nx.topological_sort(oldGraph)
+        
+        for node in nodes:
+            kind = oldGraph.nodes[node]["kind"]
+            
+            if kind == "input":
+                self.graph.add_node(node, variable = oldGraph.nodes[node]["variable"] , kind = "input")
+            elif kind == "middle":
+                symmetry = oldGraph.nodes[node]["symmetric"]
+                inputs = []
+                
+            elif kind == "output":
+                pass
+        
+    def prepareInputList(self, graph, node):
+        predecessors = list(graph.predecessors( node))
+                
+        order2predecessor = {}
+        
+        if not self.graph.nodes[node]["symmetric"]:
+            for pred in predecessors:
+                order2predecessor[ graph[pred][node]["order"] ] = pred
+                    
+        predecessor2fold = {}
+        for pred in predecessors:
+            predecessor2fold[ pred ] =  graph[pred][node]["fold"]
+        
+        inputList = []
+        
+        if order2predecessor:
+            for order in sorted(list(order2predecessor.keys())):
+                pred = order2predecessor[order]
+                inputList += predecessor2fold[pred] * [ graph.nodes[pred]["variable"] ]
+                
+        else:
+            for pred in predecessor2fold:
+                inputList += predecessor2fold[pred] * [ graph.nodes[pred]["variable"]  ]
+                
+        return inputList
+    
     def writeFunctionFromGraph(self, functionName, file):
         nodes = nx.topological_sort(self.graph)
         
@@ -548,28 +723,7 @@ class Function:
                 continue
             
             else:
-                predecessors = list(self.graph.predecessors( node))
-                
-                order2predecessor = {}
-                
-                if not self.graph.nodes[node]["symmetric"]:
-                    for pred in predecessors:
-                            order2predecessor[ self.graph[pred][node]["order"] ] = pred
-                            
-                predecessor2fold = {}
-                for pred in predecessors:
-                    predecessor2fold[ pred ] =  self.graph[pred][node]["fold"]
-                
-                inputList = []
-                
-                if order2predecessor:
-                    for order in sorted(list(order2predecessor.keys())):
-                        pred = order2predecessor[order]
-                        inputList += predecessor2fold[pred] * [ self.graph.nodes[pred]["variable"] ]
-                        
-                else:
-                    for pred in predecessor2fold:
-                        inputList += predecessor2fold[pred] * [ self.graph.nodes[pred]["variable"]  ]
+                inputList = self.prepareInputList(self.graph, node)
                         
                 fixType = self.graph.nodes[node]["fix"]
                 
@@ -611,9 +765,8 @@ class CppParser:
         self.cppFile = cppFile
         self.functions = []
         
-    def parse(self, testFilename = "" ):
+    def parse(self, testFilename , testCase = "prediction" ):
         
-#        if testFilename:
         testFile = open(testFilename ,'w')
         
         testFile.write("#include <cmath>\n")
@@ -647,6 +800,9 @@ class CppParser:
             
         testFile.write(line)
         cppF.close()
+        
+        print("szukam klastrow ")
+        newFunction.findClusters()
         
         newFunction.writeFunctionFromGraph( "dupa" , testFile )
         
@@ -690,46 +846,61 @@ class CppParser:
         testFile.write( '\tdouble hTestzy[27] = {0};\n')
         testFile.write( '\tdouble hTestzz[27] = {0};\n')
         
-        testFile.write(newFunction.name+"( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, hxx, hxy, hxz, hyx, hyy,hyz, hzx, hzy, hzz );\n")
-        testFile.write("dupa( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, hTestxx, hTestxy, hTestxz, hTestyx, hTestyy,hTestyz, hTestzx, hTestzy, hTestzz );\n")
+        if testCase == "prediction":
         
-        testFile.write("""
-        for ( int i = 0; i < 27; i++) {
-          double diffxx = std::abs(hxx[i] - hTestxx[i]);
-          double diffxy = std::abs(hxy[i] - hTestxy[i]);
-          double diffxz = std::abs(hxz[i] - hTestxz[i]);
-          
-          double diffyx = std::abs(hyx[i] - hTestyx[i]);
-          double diffyy = std::abs(hyy[i] - hTestyy[i]);
-          double diffyz = std::abs(hyz[i] - hTestyz[i]);
-          
-          double diffzx = std::abs(hzx[i] - hTestzx[i]);
-          double diffzy = std::abs(hzy[i] - hTestzy[i]);
-          double diffzz = std::abs(hzz[i] - hTestzz[i]);
-          
-          if ( diffxx > 0.0001 )
-            std::cout<<"ERROR XX !!! "<<hxx[i]<<" "<<hTestxx[i]<<std::endl;
-          if ( diffxy > 0.0001 )
-            std::cout<<"ERROR XY !!! "<<hxy[i]<<" "<<hTestxy[i]<<std::endl;
-          if ( diffxz > 0.0001 )
-            std::cout<<"ERROR XZ !!! "<<hxz[i]<<" "<<hTestxz[i]<<std::endl;
+            testFile.write(newFunction.name+"( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, hxx, hxy, hxz, hyx, hyy,hyz, hzx, hzy, hzz );\n")
+            testFile.write("dupa( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, hTestxx, hTestxy, hTestxz, hTestyx, hTestyy,hTestyz, hTestzx, hTestzy, hTestzz );\n")
             
-          if ( diffyx > 0.0001 )
-            std::cout<<"ERROR YX !!! "<<hyz[i]<<" "<<hTestyx[i]<<std::endl;
-          if ( diffyy > 0.0001 )
-            std::cout<<"ERROR YY !!! "<<hyy[i]<<" "<<hTestyy[i]<<std::endl;
-          if ( diffyz > 0.0001 )
-            std::cout<<"ERROR YZ !!! "<<hyz[i]<<" "<<hTestyz[i]<<std::endl;
-            
-          if ( diffzx > 0.0001 )
-            std::cout<<"ERROR ZX !!! "<<hzx[i]<<" "<<hTestzx[i]<<std::endl;
-          if ( diffzy > 0.0001 )
-            std::cout<<"ERROR ZY !!! "<<hzy[i]<<" "<<hTestzy[i]<<std::endl;
-          if ( diffzz > 0.0001 )
-            std::cout<<"ERROR ZZ !!! "<<hzz[i]<<" "<<hTestzz[i]<<std::endl;
-          }                       
-                       """)
-        
+            testFile.write("""
+            for ( int i = 0; i < 27; i++) {
+              double diffxx = std::abs(hxx[i] - hTestxx[i]);
+              double diffxy = std::abs(hxy[i] - hTestxy[i]);
+              double diffxz = std::abs(hxz[i] - hTestxz[i]);
+              
+              double diffyx = std::abs(hyx[i] - hTestyx[i]);
+              double diffyy = std::abs(hyy[i] - hTestyy[i]);
+              double diffyz = std::abs(hyz[i] - hTestyz[i]);
+              
+              double diffzx = std::abs(hzx[i] - hTestzx[i]);
+              double diffzy = std::abs(hzy[i] - hTestzy[i]);
+              double diffzz = std::abs(hzz[i] - hTestzz[i]);
+              
+              if ( diffxx > 0.0001 )
+                std::cout<<"ERROR XX !!! "<<hxx[i]<<" "<<hTestxx[i]<<std::endl;
+              if ( diffxy > 0.0001 )
+                std::cout<<"ERROR XY !!! "<<hxy[i]<<" "<<hTestxy[i]<<std::endl;
+              if ( diffxz > 0.0001 )
+                std::cout<<"ERROR XZ !!! "<<hxz[i]<<" "<<hTestxz[i]<<std::endl;
+                
+              if ( diffyx > 0.0001 )
+                std::cout<<"ERROR YX !!! "<<hyz[i]<<" "<<hTestyx[i]<<std::endl;
+              if ( diffyy > 0.0001 )
+                std::cout<<"ERROR YY !!! "<<hyy[i]<<" "<<hTestyy[i]<<std::endl;
+              if ( diffyz > 0.0001 )
+                std::cout<<"ERROR YZ !!! "<<hyz[i]<<" "<<hTestyz[i]<<std::endl;
+                
+              if ( diffzx > 0.0001 )
+                std::cout<<"ERROR ZX !!! "<<hzx[i]<<" "<<hTestzx[i]<<std::endl;
+              if ( diffzy > 0.0001 )
+                std::cout<<"ERROR ZY !!! "<<hzy[i]<<" "<<hTestzy[i]<<std::endl;
+              if ( diffzz > 0.0001 )
+                std::cout<<"ERROR ZZ !!! "<<hzz[i]<<" "<<hTestzz[i]<<std::endl;
+              }                       
+                           """)
+        else:
+            testFile.write("""
+            const clock_t begin_old_time = clock();
+            for( int i = 0; i < 10000 ; i ++ )\n""")
+            testFile.write("     "+newFunction.name+"( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, hxx, hxy, hxz, hyx, hyy,hyz, hzx, hzy, hzz );\n")
+            testFile.write("""
+            const clock_t old_time = clock() - begin_old_time;
+            const clock_t begin_new_time = clock();
+            for( int i = 0; i < 10000 ; i ++ )\n""")
+            testFile.write("     dupa( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, hTestxx, hTestxy, hTestxz, hTestyx, hTestyy,hTestyz, hTestzx, hTestzy, hTestzz );\n")
+            testFile.write("""
+            const clock_t new_time = clock() - begin_new_time;
+            std::cout<<old_time<<" "<<new_time<<std::endl;
+            """)
         testFile.write("return 0;\n}\n")
         
         testFile.close()

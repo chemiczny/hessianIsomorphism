@@ -298,13 +298,13 @@ class GraphParser:
         return self.parseExpression(fixedExprList)
         
         
-    def insertNewOperator(self, operatorName, inputs, fix ):
+    def insertNewOperator(self, operatorName, inputs, fix , forceNewNode = False):
 #        print("Dodaje wierzcholek: ", operatorName, "wejscia", inputs)
         if not operatorName in self.operators:
             self.operators[operatorName] = -1           
             
         key = "_".join(sorted(inputs)) + "_"+operatorName
-        if key in self.key2uniqueOperatorNodes:
+        if key in self.key2uniqueOperatorNodes and not forceNewNode:
             return self.key2uniqueOperatorNodes[key]
             
         inp2fold = {}
@@ -619,7 +619,7 @@ class GraphParser:
         self.key2uniqueOperatorNodes = {}
         self.operators = { }
         
-        nodes = nx.topological_sort(oldGraph)
+        nodes = list(nx.topological_sort(oldGraph))
         
         for node in nodes:
             kind = oldGraph.nodes[node]["kind"]

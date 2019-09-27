@@ -6,6 +6,7 @@ Created on Thu Apr 11 15:58:16 2019
 @author: michal
 """
 from graphOptimizer import GraphOptimizer
+from isomorphCollection import IsomorphCollection
 
 import pickle
 #import matplotlib.pyplot as plt
@@ -20,6 +21,8 @@ class CppParser:
         self.functions = []
         self.graphPickle = graphPickle
         self.frequentSubgraphsPickle = frequentSubgraphPickle
+        
+        self.isomorphs = None
         
     def parse(self ):        
         cppF = open(self.cppFile, 'r')
@@ -39,7 +42,7 @@ class CppParser:
         print("przebudowuje graf ", len(newFunction.graph.nodes))
         newFunction.rebuildGraph()
         print("Done ",len(newFunction.graph.nodes) )
-        newFunction.analysePools()
+#        newFunction.analysePools()
         
 #        print("szukam slepych uliczek")
 #        newFunction.findDeadEnds()
@@ -202,18 +205,22 @@ class CppParser:
         infile = open(self.graphPickle,'rb')
         self.functions = pickle.load(infile)
         infile.close()
+        
+    def initSubgraphs(self, minSup):
+        self.isomorphs = IsomorphCollection(self.functions[0], minSup)
 
 
 
 if __name__ == "__main__":
 #    testFile = "testData/short.cpp"
 #    testFile = "testData/d2_ne_ss_AA.ey.cpp"
-    testFile = "testData/optimized/d2_ee_pppp_AA.ey.cpp"
+#    testFile = "testData/optimized/d2_ee_pppp_AA.ey.cpp"
+    testFile = "testData/d2_ee_ppps_AA.ey.cpp"
     
     cppParser = CppParser(testFile)
-#    cppParser.parse()
+    cppParser.parse()
 #    cppParser.saveGraphFunction("test.pickle")
-    cppParser.loadGraphFunction("test.pickle")
+#    cppParser.loadGraphFunction()
     cppParser.writeTest("dupa2.cpp")
     
     

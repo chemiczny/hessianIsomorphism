@@ -10,13 +10,22 @@ import networkx as nx
 from copy import deepcopy
 
 class AtomRepresentation:
-    def __init__(self, atom):
+    def __init__(self, atom, coeff = 1):
         self.name = atom.name
         self.maximumPower = atom.power
-        self.occurrence = 1
+        self.positiveOccurrence = 0
+        self.negativeOccurence = 0
+        if coeff > 0:
+            self.positiveOccurrence += coeff
+        else:
+            self.negativeOccurence += coeff
         
-    def addAtom(self, atom):
-        self.occurrence += 1
+    def addAtom(self, atom, coeff = 1):
+        if coeff > 0:
+            self.positiveOccurrence += coeff
+        else:
+            self.negativeOccurence += coeff
+            
         if atom.power > self.maximumPower:
             self.maximumPower = atom.power
 
@@ -25,6 +34,13 @@ class CanonicalAtom:
         self.name = name
         self.power = 1
         self.node = node
+        
+    def getKey(self):
+        key = self.name
+        if self.power != 1:
+            key += "^"+str(self.power)
+            
+        return key
 
 class CanonicalSubform:
     def __init__(self):
@@ -42,10 +58,11 @@ class CanonicalSubform:
     def generateKey(self):
         keyList = []
         for atomName in self.atoms:
-            keyList.append( self.atoms[atomName].name +"^"+str(self.atoms[atomName].power) )
+            keyList.append( self.atoms[atomName].getKey() )
             
         keyList.sort()
-        return "*".join(keyList)
+        self.key = "*".join(keyList)
+        return self.key
     
     
     def multiply(self, subform):
@@ -74,10 +91,17 @@ class CanonicalForm:
         keyList = []
         
         for subKey in self.subforms:
-            keyList.append( subKey + "*"+str( self.subforms[subKey].coefficient ) )
+            subform = self.subforms[subKey]
+            newKey = subform.getKey()
+            
+            if subform.coefficient != 1:
+                newKey += "*"+str(subform.coefficient)
+            
+            keyList.append( newKey )
             
             
         return "+".join(sorted( keyList ))
+    
     
     def multiply(self, canonicalForm):
         temp, self.subforms = self.subforms , {}
@@ -170,18 +194,18 @@ class KeyGenerator:
             form =  self.subgraph.nodes[node]["form"] 
             for subformKey in form.subforms:
                 subForm = form.subforms[subformKey]
-                
+                actualCoeff = subForm.coefficient
                 for atomKey in subForm.atoms:
                     atom = subForm.atoms[atomKey]
                     atomName = atom.name
                     
                     if atomName in atomRepresentations:
-                        atomRepresentations[atomName].addAtom(atom)
+                        atomRepresentations[atomName].addAtom(atom, actualCoeff)
                     else:
-                        atomRepresentations[atomName] = AtomRepresentation(atom)
+                        atomRepresentations[atomName] = AtomRepresentation(atom, actualCoeff)
                         
         atomReprList = list(atomRepresentations.values())
-        atomReprList.sort( key = lambda x : ( -x.maximumPower , -x.occurrence )  )
+        atomReprList.sort( key = lambda x : ( -x.maximumPower , -x.positiveOccurrence, -x.negativeOccurence )  )
         
         atom2newName = {}
         atomInd = 0
@@ -198,6 +222,8 @@ class KeyGenerator:
                 for atomKey in subForm.atoms:
                     atom = subForm.atoms[atomKey]
                     atom.name = atom2newName[atomKey]
+                    
+                subForm.generateKey()
         
             canonicalLabels.append( form.generateKey() )
         

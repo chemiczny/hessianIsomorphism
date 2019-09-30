@@ -36,7 +36,10 @@ class IsomorphCollection:
                 self.isomorphs[newLabel] = Isomorph( [node] )
                 
                 
-        print( list(self.isomorphs.keys()))
+        
+        print(len(list(self.isomorphs.keys())))
+        for key in self.isomorphs:
+            print(key)
             
             
     def createCanonicalLabel(self, nodes):

@@ -64,6 +64,8 @@ class IsomorphCollection:
             for isomorph in oldIsomorphs[key]:
                 isomorphSuccessors = isomorph.getSuccessors()
                 
+                keysGeneratedFomIsomorph = set([])
+                
                 for node in isomorphSuccessors:
                     
                     if self.graphParser.graph.nodes[node]["kind"] != "middle":
@@ -80,6 +82,11 @@ class IsomorphCollection:
                     
                     newIsomorph = KeyGenerator( self.graphParser.graph, isomorph.selectedNodes+ [node] )
                     newLabel = newIsomorph.generateKey()
+                    
+                    if newLabel in keysGeneratedFomIsomorph:
+                        continue
+                    
+                    keysGeneratedFomIsomorph.add(key)
                     
                     if newLabel in self.isomorphs:
                         self.isomorphs[newLabel].append( newIsomorph )

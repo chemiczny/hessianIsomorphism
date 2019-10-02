@@ -13,10 +13,14 @@ from os import mkdir
 from CppParser import CppParser
 
 class SubgraphMiner:
-    def __init__(self, minSup, sourceDir, graphDir, frequentSubgraphDir):
+    def __init__(self, minSup, sourceDir, graphDir, frequentSubgraphDir, logFile):
         self.minSup = minSup
         self.sourceDir = sourceDir
         self.graphDir = graphDir
+        self.logFile = logFile
+        
+        lf = open(logFile, 'w')
+        lf.close()
         
         if not path.isdir(self.graphDir):
             mkdir(self.graphDir)
@@ -70,7 +74,8 @@ class SubgraphMiner:
         self.joinIsomorphs()
     
     def joinIsomorphs(self):
-        print("###############MINING STATUS##################")
+        lf = open(self.logFile, "a")
+        lf.write("###############MINING STATUS##################\n")
         
         isomorphKey2occurence = {}
         allExpr = 0
@@ -85,8 +90,8 @@ class SubgraphMiner:
                 else:
                     isomorphKey2occurence[key] = update[key]
                     
-        print("unikalne klucze: ", len(isomorphKey2occurence))
-        print("liczba wyrazen: ", allExpr)
+        lf.write("unikalne klucze: "+str(len(isomorphKey2occurence))+"\n")
+        lf.write("liczba wyrazen: "+str( allExpr)+"\n")
         
         key2save = set([])
         
@@ -98,7 +103,7 @@ class SubgraphMiner:
         for graph in self.graphs:
             graph.isomorphs.update(key2save)
             
-        print("Po updejcie: ")
+        lf.write("Po updejcie: \n")
         
         isomorphKey2occurence = {}
         allExpr = 0
@@ -113,17 +118,19 @@ class SubgraphMiner:
                 else:
                     isomorphKey2occurence[key] = update[key]
                     
-        print("unikalne klucze: ", len(isomorphKey2occurence))
-        print("liczba wyrazen: ", allExpr)
+        lf.write("unikalne klucze: "+str( len(isomorphKey2occurence))+"\n")
+        lf.write("liczba wyrazen: " + str( allExpr )+"\n")
         
         for key in isomorphKey2occurence:
-            print(isomorphKey2occurence[key], key)
+            lf.write(str(isomorphKey2occurence[key])+" "+ key+"\n")
+            
+        lf.close()
         
         
         
 if __name__ == "__main__":
-    sm = SubgraphMiner(200, "testData", "graphDir", "fsDir" )
+    sm = SubgraphMiner(200, "testData", "graphDir", "fsDir", "mining.log" )
     sm.buildGraphSet(True)
     sm.initSubgraphs()
-    for i in range(2):
+    for i in range(1):
         sm.miningIteration()

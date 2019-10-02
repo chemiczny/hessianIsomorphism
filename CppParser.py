@@ -208,6 +208,12 @@ class CppParser:
         
     def initSubgraphs(self, minSup):
         self.isomorphs = IsomorphCollection(self.functions[0], minSup)
+        
+    def getOccurence(self):
+        return self.isomorphs.getOccurence()
+        
+    def subgraphsGrowth(self):
+        self.isomorphs.isomorphsGrowth()
 
 
 

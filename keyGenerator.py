@@ -143,9 +143,9 @@ class KeyGenerator:
         sortedNodes = list(nx.topological_sort(self.subgraph))
         
         input2form = {}
-        outputNodes = []
+        self.outputNodes = []
         
-        inpInd = 0
+        self.inpInd = 0
         
         for node in sortedNodes:
             originalSucc = list( self.graph.successors(node) )
@@ -160,8 +160,8 @@ class KeyGenerator:
                 
                 for newInp in newInputs:
                     if not newInp in input2form:
-                        name = "i"+str(inpInd)
-                        inpInd+=1
+                        name = "i"+str(self.inpInd)
+                        self.inpInd+=1
                         
                         newAtom = CanonicalAtom(name, 1, newInp)
                         
@@ -186,11 +186,11 @@ class KeyGenerator:
                 
             
             if len(originalSucc) > len(newSucc):
-                outputNodes.append(node)
+                self.outputNodes.append(node)
                 
                 
         atomRepresentations = {}
-        for node in outputNodes:
+        for node in self.outputNodes:
             form =  self.subgraph.nodes[node]["form"] 
             for subformKey in form.subforms:
                 subForm = form.subforms[subformKey]
@@ -214,7 +214,7 @@ class KeyGenerator:
             atomInd += 1
         
         canonicalLabels = []
-        for node in outputNodes:
+        for node in self.outputNodes:
             form =  self.subgraph.nodes[node]["form"] 
             for subformKey in form.subforms:
                 subForm = form.subforms[subformKey]
@@ -229,6 +229,20 @@ class KeyGenerator:
         
         canonicalLabel = ",".join(sorted( canonicalLabels ))
         return canonicalLabel
+    
+    def addNode(self, node):
+        self.selectedNodes.append(node)
+        self.subgraph = self.graph.subgraph(self.selectedNodes).copy()
+        
+    def getSuccessors(self):
+        graphSuccesors = set([])
+        subgraphSuccesors = set([])
+        
+        for node in self.outputNodes:
+            graphSuccesors |= set(self.graph.successors(node))
+            subgraphSuccesors |= set(self.subgraph.successors(node))
+            
+        return graphSuccesors - subgraphSuccesors
     
     def generateCanonicalFormForNode(self, node):
         nodeOperator = self.subgraph.nodes[node]["operator"]

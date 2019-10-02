@@ -48,13 +48,82 @@ class SubgraphMiner:
             
     def mining(self):
         self.initSubgraphs()
+        self.joinIsomorphs()
+        
+        initialSize = 1
+        maxSize = 3
+        
+        for i in range(initialSize, maxSize):
+            self.miningIteration()
+        
     
     def initSubgraphs(self):
         for graph in self.graphs:
             graph.initSubgraphs(self.minSup)
             
+        self.joinIsomorphs()
+            
+    def miningIteration(self):
+        for graph in self.graphs:
+            graph.subgraphsGrowth()
+            
+        self.joinIsomorphs()
+    
+    def joinIsomorphs(self):
+        print("###############MINING STATUS##################")
+        
+        isomorphKey2occurence = {}
+        allExpr = 0
+        
+        
+        for graph in self.graphs:
+            update = graph.getOccurence()
+            for key in update:
+                allExpr += update[key]
+                if key in isomorphKey2occurence:
+                    isomorphKey2occurence[key] += update[key]
+                else:
+                    isomorphKey2occurence[key] = update[key]
+                    
+        print("unikalne klucze: ", len(isomorphKey2occurence))
+        print("liczba wyrazen: ", allExpr)
+        
+        key2save = set([])
+        
+        for key in isomorphKey2occurence:
+#            print(isomorphKey2occurence[key], key)
+            if isomorphKey2occurence[key] > self.minSup:
+                key2save.add(key)
+                
+        for graph in self.graphs:
+            graph.isomorphs.update(key2save)
+            
+        print("Po updejcie: ")
+        
+        isomorphKey2occurence = {}
+        allExpr = 0
+        
+        
+        for graph in self.graphs:
+            update = graph.getOccurence()
+            for key in update:
+                allExpr += update[key]
+                if key in isomorphKey2occurence:
+                    isomorphKey2occurence[key] += update[key]
+                else:
+                    isomorphKey2occurence[key] = update[key]
+                    
+        print("unikalne klucze: ", len(isomorphKey2occurence))
+        print("liczba wyrazen: ", allExpr)
+        
+        for key in isomorphKey2occurence:
+            print(isomorphKey2occurence[key], key)
+        
+        
         
 if __name__ == "__main__":
-    sm = SubgraphMiner(10, "testData", "graphDir", "fsDir" )
+    sm = SubgraphMiner(200, "testData", "graphDir", "fsDir" )
     sm.buildGraphSet(True)
     sm.initSubgraphs()
+    for i in range(2):
+        sm.miningIteration()

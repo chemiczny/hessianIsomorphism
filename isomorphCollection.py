@@ -53,14 +53,14 @@ class IsomorphCollection:
         for key in self.isomorphs:
             occurence[key] = len(self.isomorphs[key])
             
-            allNodes = 0
-            uniqueNodes = set([])
-            
-            for isomorph in self.isomorphs[key]:
-                allNodes += len(isomorph.selectedNodes)
-                uniqueNodes |= set(isomorph.selectedNodes)
-                
-            print(key, len(uniqueNodes), "/", allNodes)
+#            allNodes = 0
+#            uniqueNodes = set([])
+#            
+#            for isomorph in self.isomorphs[key]:
+#                allNodes += len(isomorph.selectedNodes)
+#                uniqueNodes |= set(isomorph.selectedNodes)
+#                
+#            print(key, len(uniqueNodes), "/", allNodes)
             
         return occurence
     

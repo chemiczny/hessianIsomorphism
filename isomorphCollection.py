@@ -53,12 +53,22 @@ class IsomorphCollection:
         for key in self.isomorphs:
             occurence[key] = len(self.isomorphs[key])
             
+            allNodes = 0
+            uniqueNodes = set([])
+            
+            for isomorph in self.isomorphs[key]:
+                allNodes += len(isomorph.selectedNodes)
+                uniqueNodes |= set(isomorph.selectedNodes)
+                
+            print(key, len(uniqueNodes), "/", allNodes)
+            
         return occurence
     
     def isomorphsGrowth(self):
         oldIsomorphs = deepcopy(self.isomorphs)
         self.isomorphs = {}
-        usedNodesSet = set()
+#        usedNodesSet = set()
+        key2nodes = {}
         
         for key in oldIsomorphs:
             for isomorph in oldIsomorphs[key]:
@@ -74,14 +84,23 @@ class IsomorphCollection:
                     if not self.graphParser.graph.nodes[node]["operator"] in [ "*" , "+" , "-" ] :
                         continue
                     
-                    nodes = frozenset( isomorph.selectedNodes+ [node] )
-                    if nodes in usedNodesSet:
-                        continue
                     
-                    usedNodesSet.add(nodes)
+#                    nodes = frozenset( isomorph.selectedNodes+ [node] )
+#                    if nodes in usedNodesSet:
+#                        continue
+                    
+#                    usedNodesSet.add(nodes)
                     
                     newIsomorph = KeyGenerator( self.graphParser.graph, isomorph.selectedNodes+ [node] )
                     newLabel = newIsomorph.generateKey()
+                    
+                    if key in key2nodes:
+                        if set(newIsomorph.selectedNodes) & key2nodes[key]:
+                            continue
+                        
+                        key2nodes[key] |= set(newIsomorph.selectedNodes) 
+                    else:
+                        key2nodes[key] = set(newIsomorph.selectedNodes) 
                     
                     if newLabel in keysGeneratedFomIsomorph:
                         continue

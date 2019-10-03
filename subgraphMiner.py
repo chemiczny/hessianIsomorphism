@@ -35,7 +35,7 @@ class SubgraphMiner:
         
     def buildGraphSet(self, load = False):
         for cpp in self.sourceList:
-            
+            self.append2logFile("Creating seed for "+cpp)
             graphBackup = path.join( self.graphDir, path.basename(cpp).replace(".cpp", ".pickle"))
             miningBackup = path.join( self.frequentSubgraphDir, path.basename(cpp).replace(".cpp", ".pickle"))
             newGraphParser = CppParser(cpp, graphBackup, miningBackup)
@@ -49,6 +49,11 @@ class SubgraphMiner:
                 newGraphParser.saveGraphFunction()
             
             self.graphs.append(newGraphParser)
+            
+    def append2logFile(self, message):
+        lf = open(self.logFile, 'a')
+        lf.write(message+"\n")
+        lf.close()
             
     def mining(self):
         self.initSubgraphs()

@@ -65,8 +65,7 @@ class IsomorphCollection:
         return occurence
     
     def isomorphsGrowth(self):
-        oldIsomorphs = deepcopy(self.isomorphs)
-        self.isomorphs = {}
+        oldIsomorphs, self.isomorphs = self.isomorphs, {}
 #        usedNodesSet = set()
         key2nodes = {}
         
@@ -92,7 +91,11 @@ class IsomorphCollection:
 #                    usedNodesSet.add(nodes)
                     
                     newIsomorph = KeyGenerator( self.graphParser.graph, isomorph.selectedNodes+ [node] )
-                    newLabel = newIsomorph.generateKey()
+                    newIsomorph.copyOutputForms(isomorph)
+                    newIsomorph.insertNode(node)
+                    newIsomorph.updateOutputs()
+                    
+                    newLabel = newIsomorph.generateKeyIteration()
                     
                     if key in key2nodes:
                         if set(newIsomorph.selectedNodes) & key2nodes[key]:

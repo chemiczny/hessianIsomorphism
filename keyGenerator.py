@@ -54,6 +54,13 @@ class CanonicalSubform:
         
         self.generateKey()
         return self.key
+    
+    def updateKeys(self):
+        self.atoms, oldAtoms = {} , self.atoms
+        
+        for atomKey in oldAtoms:
+            atom = oldAtoms[atomKey]
+            self.atoms[atom.name] = atom
         
     def generateKey(self):
         keyList = []
@@ -72,7 +79,7 @@ class CanonicalSubform:
             if atomKey in self.atoms:
                 self.atoms[atomKey].power += subform.atoms[atomKey].power
             else:
-                self.atoms[atomKey] = subform.atoms[atomKey]
+                self.atoms[atomKey] = deepcopy(subform.atoms[atomKey])
                 
         self.key = ""
     
@@ -102,6 +109,14 @@ class CanonicalForm:
             
         return "+".join(sorted( keyList ))
     
+    def updateKeys(self):
+        self.subforms, oldSubforms = {}, self.subforms
+        
+        for key in oldSubforms:
+            subform = oldSubforms[key]
+            subform.updateKeys()
+            key = subform.generateKey()
+            self.subforms[key] = subform
     
     def multiply(self, canonicalForm):
         temp, self.subforms = self.subforms , {}
@@ -139,56 +154,59 @@ class KeyGenerator:
         self.selectedNodes = selectedNodes
         self.subgraph = self.graph.subgraph(self.selectedNodes).copy()
         
-    def generateKey(self ):
-        sortedNodes = list(nx.topological_sort(self.subgraph))
+    def insertNode(self, node):
+        originalSucc = list( self.graph.successors(node) )
+        originalPred = list( self.graph.predecessors(node))
         
-        input2form = {}
-        self.outputNodes = []
+        newSucc = list( self.subgraph.successors(node))
+        newPred = list( self.subgraph.predecessors(node))
         
-        self.inpInd = 0
         
-        for node in sortedNodes:
+        if len(originalPred) > len(newPred):
+            newInputs = set(originalPred) - set(newPred)
+            
+            for newInp in newInputs:
+                if not newInp in self.input2form:
+                    name = "i"+str(self.inpInd)
+                    self.inpInd+=1
+                    
+                    newAtom = CanonicalAtom(name, 1, newInp)
+                    
+                    newSubform = CanonicalSubform()
+                    newSubform.atoms[newAtom.name] = newAtom
+                    
+                    newForm = CanonicalForm()
+                    newForm.subforms[ newSubform.getKey() ] = newSubform
+                    
+                    self.subgraph.add_node(newInp, form = newForm)
+                    
+                newEdgeFold = self.graph[newInp][node]["fold"]
+                
+                if self.graph.nodes[node]["symmetric"]:
+                    self.subgraph.add_edge(newInp, node, fold = newEdgeFold)
+                else:
+                    newEdgeOrder = self.graph[newInp][node]["order"]
+                    self.subgraph.add_edge(newInp, node, fold = newEdgeFold, order = newEdgeOrder)
+                    
+                
+        self.generateCanonicalFormForNode(node)
+            
+        
+        if len(originalSucc) > len(newSucc):
+            self.outputNodes.append(node)
+            
+    def updateOutputs(self):
+        oldOutputs, self.outputNodes = self.outputNodes, []
+        
+        for node in oldOutputs:
             originalSucc = list( self.graph.successors(node) )
-            originalPred = list( self.graph.predecessors(node))
             
             newSucc = list( self.subgraph.successors(node))
-            newPred = list( self.subgraph.predecessors(node))
-            
-            
-            if len(originalPred) > len(newPred):
-                newInputs = set(originalPred) - set(newPred)
-                
-                for newInp in newInputs:
-                    if not newInp in input2form:
-                        name = "i"+str(self.inpInd)
-                        self.inpInd+=1
-                        
-                        newAtom = CanonicalAtom(name, 1, newInp)
-                        
-                        newSubform = CanonicalSubform()
-                        newSubform.atoms[newAtom.name] = newAtom
-                        
-                        newForm = CanonicalForm()
-                        newForm.subforms[ newSubform.getKey() ] = newSubform
-                        
-                        self.subgraph.add_node(newInp, form = newForm)
-                        
-                    newEdgeFold = self.graph[newInp][node]["fold"]
-                    
-                    if self.graph.nodes[node]["symmetric"]:
-                        self.subgraph.add_edge(newInp, node, fold = newEdgeFold)
-                    else:
-                        newEdgeOrder = self.graph[newInp][node]["order"]
-                        self.subgraph.add_edge(newInp, node, fold = newEdgeFold, order = newEdgeOrder)
-                        
-                    
-            self.generateCanonicalFormForNode(node)
-                
             
             if len(originalSucc) > len(newSucc):
                 self.outputNodes.append(node)
                 
-                
+    def generateKeyIteration(self):
         atomRepresentations = {}
         for node in self.outputNodes:
             form =  self.subgraph.nodes[node]["form"] 
@@ -221,18 +239,49 @@ class KeyGenerator:
                 
                 for atomKey in subForm.atoms:
                     atom = subForm.atoms[atomKey]
-                    atom.name = atom2newName[atomKey]
                     
-                subForm.generateKey()
-        
+                    oldname = atom.name
+                    atom.name = atom2newName[oldname]
+                    
+            form.updateKeys()
             canonicalLabels.append( form.generateKey() )
         
         canonicalLabel = ",".join(sorted( canonicalLabels ))
         return canonicalLabel
+        
+    def generateKey(self ):
+        sortedNodes = list(nx.topological_sort(self.subgraph))
+        
+        self.input2form = {}
+        self.outputNodes = []
+        
+        self.inpInd = 0
+        
+        for node in sortedNodes:
+            self.insertNode(node)
+                
+                
+        return self.generateKeyIteration()
     
     def addNode(self, node):
         self.selectedNodes.append(node)
         self.subgraph = self.graph.subgraph(self.selectedNodes).copy()
+        
+    def copyOutputForms(self, isomorph):
+        self.input2form = deepcopy(isomorph.input2form)
+        self.inpInd = isomorph.inpInd
+        self.outputNodes = deepcopy(isomorph.outputNodes)
+        
+        
+        for node in isomorph.outputNodes:
+            
+            if not node in isomorph.subgraph.nodes:
+                print("nie ma w bazowym izomorfie")
+                
+            if not node in self.subgraph.nodes:
+                print("nie ma w docelowym izomorfie")
+            
+            self.subgraph.nodes[node]["form"] = deepcopy( isomorph.subgraph.nodes[node]["form"] )
         
     def getSuccessors(self):
         graphSuccesors = set([])

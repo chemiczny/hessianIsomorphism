@@ -357,11 +357,24 @@ class GraphParser:
         if onlyUnique:
             for index, inp in enumerate(inputs):
                 self.graph.add_edge(inp, nodeName, fold = 1, order = index )
-        
         else:
             self.graph.add_edge(inputs[0], nodeName, fold = 2, order = 0 )
         
         return nodeName
+    
+    
+    def changeNodeOperator(self, nodeName, newOperator, inputs, fix):
+        self.graph.nodes[nodeName]["symmetric"] = False
+        self.graph.nodes[nodeName]["operator"] = newOperator
+        self.graph.nodes[nodeName]["fix"] = fix
+        
+        onlyUnique = 0 == len(set(inputs))-len(inputs)
+        
+        if onlyUnique:
+            for index, inp in enumerate(inputs):
+                self.graph.add_edge(inp, nodeName, fold = 1, order = index )
+        else:
+            self.graph.add_edge(inputs[0], nodeName, fold = 2, order = 0 )
         
     def parseExpression(self, exprSplit):
 #        print("Parsuje wyrazenie: ","".join(exprSplit))
@@ -577,7 +590,8 @@ class GraphParser:
                 if fixType == "prefix" and len(inputList) > 1:
                     raise Exception("One argument prefix operator with more arguments!")
                     
-                if not self.graph.nodes[node]["variable"]:
+                nodeVariable = self.graph.nodes[node]["variable"]
+                if not nodeVariable or "dupa" in str(nodeVariable):
                     self.graph.nodes[node]["variable"] = "dupa"+str(constantIndex)
                     constantIndex += 1
                     
@@ -611,10 +625,9 @@ class GraphParser:
         
         file.write("}\n")
     def rebuildGraph(self):
-        oldGraph = deepcopy(self.graph)
+        oldGraph, self.graph = self.graph, nx.DiGraph()
 #        oldVariables2nodes = deepcopy(self.variables2nodes)
         
-        self.graph = nx.DiGraph()
         self.variables2nodes = {}
         self.key2uniqueOperatorNodes = {}
         self.operators = { }

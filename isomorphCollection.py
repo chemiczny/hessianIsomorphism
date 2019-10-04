@@ -91,11 +91,12 @@ class IsomorphCollection:
 #                    usedNodesSet.add(nodes)
                     
                     newIsomorph = KeyGenerator( self.graphParser.graph, isomorph.selectedNodes+ [node] )
-                    newIsomorph.copyOutputForms(isomorph)
-                    newIsomorph.insertNode(node)
-                    newIsomorph.updateOutputs()
-                    
-                    newLabel = newIsomorph.generateKeyIteration()
+#                    newIsomorph.copyOutputForms(isomorph)
+#                    newIsomorph.insertNode(node)
+#                    newIsomorph.updateOutputs()
+#                    
+#                    newLabel = newIsomorph.generateKeyIteration()
+                    newLabel = newIsomorph.generateKey()
                     
                     if key in key2nodes:
                         if set(newIsomorph.selectedNodes) & key2nodes[key]:

@@ -82,7 +82,7 @@ class SubgraphMiner:
         lf = open(self.logFile, "a")
         lf.write("###############MINING STATUS##################\n")
         
-        isomorphKey2occurence = {}
+        self.isomorphKey2occurence = {}
         allExpr = 0
         
         
@@ -90,19 +90,19 @@ class SubgraphMiner:
             update = graph.getOccurence()
             for key in update:
                 allExpr += update[key]
-                if key in isomorphKey2occurence:
-                    isomorphKey2occurence[key] += update[key]
+                if key in self.isomorphKey2occurence:
+                    self.isomorphKey2occurence[key] += update[key]
                 else:
-                    isomorphKey2occurence[key] = update[key]
+                    self.isomorphKey2occurence[key] = update[key]
                     
-        lf.write("unikalne klucze: "+str(len(isomorphKey2occurence))+"\n")
+        lf.write("unikalne klucze: "+str(len(self.isomorphKey2occurence))+"\n")
         lf.write("liczba wyrazen: "+str( allExpr)+"\n")
         
         key2save = set([])
         
-        for key in isomorphKey2occurence:
+        for key in self.isomorphKey2occurence:
 #            print(isomorphKey2occurence[key], key)
-            if isomorphKey2occurence[key] > self.minSup:
+            if self.isomorphKey2occurence[key] > self.minSup:
                 key2save.add(key)
                 
         for graph in self.graphs:
@@ -110,7 +110,7 @@ class SubgraphMiner:
             
         lf.write("Po updejcie: \n")
         
-        isomorphKey2occurence = {}
+        self.isomorphKey2occurence = {}
         allExpr = 0
         
         
@@ -118,16 +118,16 @@ class SubgraphMiner:
             update = graph.getOccurence()
             for key in update:
                 allExpr += update[key]
-                if key in isomorphKey2occurence:
-                    isomorphKey2occurence[key] += update[key]
+                if key in self.isomorphKey2occurence:
+                    self.isomorphKey2occurence[key] += update[key]
                 else:
-                    isomorphKey2occurence[key] = update[key]
+                    self.isomorphKey2occurence[key] = update[key]
                     
-        lf.write("unikalne klucze: "+str( len(isomorphKey2occurence))+"\n")
+        lf.write("unikalne klucze: "+str( len(self.isomorphKey2occurence))+"\n")
         lf.write("liczba wyrazen: " + str( allExpr )+"\n")
         
-        for key in isomorphKey2occurence:
-            lf.write(str(isomorphKey2occurence[key])+" "+ key+"\n")
+        for key in self.isomorphKey2occurence:
+            lf.write(str(self.isomorphKey2occurence[key])+" "+ key+"\n")
             
         lf.close()
         
@@ -139,3 +139,16 @@ if __name__ == "__main__":
     sm.initSubgraphs()
     for i in range(1):
         sm.miningIteration()
+        
+    for key in sm.isomorphKey2occurence:
+        if not "," in key:
+            selected = key
+            
+    print(selected)
+    sm.graphs[0].writeTest("brutality.cpp")
+    sm.graphs[0].replaceIsomorphWithFunction(selected, "testIso")
+    sm.graphs[0].writeTest("fatality.cpp")
+    
+    lol = open("iso.cpp",'w')
+    sm.graphs[0].isomorphs.isomorphs[selected][0].writeFunction( "testIso", lol)
+    lol.close()

@@ -215,7 +215,26 @@ class CppParser:
     def subgraphsGrowth(self):
         self.isomorphs.isomorphsGrowth()
 
-
+    def replaceIsomorphWithFunction(self, isomorphKey, functionName):
+        actualFunction = self.functions[0]
+        for isomorph in self.isomorphs.isomorphs[isomorphKey]:
+            allNodes = set(isomorph.selectedNodes)
+            outputNodes = set(isomorph.outputNodes)
+            inputNodes = set(isomorph.inputNodes)
+            
+            nodes2delete = allNodes - outputNodes
+            nodes2delete -= inputNodes
+            
+            if len(outputNodes) > 1 :
+                raise Exception("Inserting subgraph with more than one output is not yet implemented")
+                
+            actualFunction.graph.remove_nodes_from(nodes2delete)
+            
+            outputNode = isomorph.outputNodes[0]
+            actualFunction.changeNodeOperator(outputNode, functionName, isomorph.inputNodes , "prefixBrackets" )
+            
+            
+#        actualFunction.rebuildGraph()
 
 if __name__ == "__main__":
 #    testFile = "testData/short.cpp"

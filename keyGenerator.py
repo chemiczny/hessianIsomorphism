@@ -8,10 +8,12 @@ Created on Thu May 30 11:19:31 2019
 
 import networkx as nx
 from copy import deepcopy
+from graphParser import GraphParser
 
 class AtomRepresentation:
     def __init__(self, atom, coeff = 1):
         self.name = atom.name
+        self.node = atom.node
         self.maximumPower = atom.power
         self.positiveOccurrence = 0
         self.negativeOccurence = 0
@@ -153,6 +155,19 @@ class KeyGenerator:
         self.graph = graph
         self.selectedNodes = selectedNodes
         self.subgraph = self.graph.subgraph(self.selectedNodes).copy()
+        self.outputNodes = []
+        self.inputNodes = []
+        
+    def writeFunction(self, functionName , file ):
+        graphParser = GraphParser()
+        graphParser.graph = self.subgraph
+        print(self.subgraph.nodes)
+        print(self.inputNodes)
+        print(self.selectedNodes)
+        arguments = [ "double " + self.subgraph.nodes[inp]["variable"] for inp in self.inputNodes  ]
+        graphParser.arguments = graphParser.getArgsFromLine( " , ".join(arguments) )
+#        graphParser.rebuildGraph()
+        graphParser.writeFunctionFromGraph(functionName, file)
         
     def insertNode(self, node):
         originalSucc = list( self.graph.successors(node) )
@@ -166,7 +181,9 @@ class KeyGenerator:
             newInputs = set(originalPred) - set(newPred)
             
             for newInp in newInputs:
+                
                 if not newInp in self.input2form:
+                    self.inputNodes.append(newInp)
                     name = "i"+str(self.inpInd)
                     self.inpInd+=1
                     
@@ -178,7 +195,7 @@ class KeyGenerator:
                     newForm = CanonicalForm()
                     newForm.subforms[ newSubform.getKey() ] = newSubform
                     
-                    self.subgraph.add_node(newInp, form = newForm)
+                    self.subgraph.add_node(newInp, form = newForm, kind = "input", variable = name)
                     
                 newEdgeFold = self.graph[newInp][node]["fold"]
                 
@@ -194,6 +211,8 @@ class KeyGenerator:
         
         if len(originalSucc) > len(newSucc):
             self.outputNodes.append(node)
+            self.subgraph.nodes[node]["kind"] = "output"
+            self.subgraph.nodes[node]["variable"] = "return"
             
     def updateOutputs(self):
         oldOutputs, self.outputNodes = self.outputNodes, []
@@ -227,9 +246,11 @@ class KeyGenerator:
         
         atom2newName = {}
         atomInd = 0
+        self.inputNodes = []
         for atom in atomReprList:
             atom2newName[atom.name] = "j" + str(atomInd)
             atomInd += 1
+            self.inputNodes.append( atom.node )
         
         canonicalLabels = []
         for node in self.outputNodes:
@@ -269,6 +290,7 @@ class KeyGenerator:
         
     def copyOutputForms(self, isomorph):
         self.input2form = deepcopy(isomorph.input2form)
+#        self.inputNodes = deepcopy(isomorph.inputNodes)
         self.inpInd = isomorph.inpInd
         self.outputNodes = deepcopy(isomorph.outputNodes)
         

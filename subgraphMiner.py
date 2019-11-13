@@ -145,9 +145,9 @@ if __name__ == "__main__":
             selected = key
             
     print(selected)
-    sm.graphs[0].writeTest("brutality.cpp")
+    sm.graphs[0].writeTest("brutality.cpp", "perf")
     sm.graphs[0].replaceIsomorphWithFunction(selected, "testIso")
-    sm.graphs[0].writeTest("fatality.cpp")
+    sm.graphs[0].writeTest("fatality.cpp", "perf")
     
     lol = open("iso.cpp",'w')
     sm.graphs[0].isomorphs.isomorphs[selected][0].writeFunction( "testIso", lol)

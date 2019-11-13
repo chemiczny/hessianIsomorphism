@@ -11,6 +11,7 @@ from copy import deepcopy
 from graphParser import GraphParser
 
 class AtomRepresentation:
+    __slots__ = [ "name", "node", "maximumPower", "positiveOccurrence", "negativeOccurence" ]
     def __init__(self, atom, coeff = 1):
         self.name = atom.name
         self.node = atom.node
@@ -32,6 +33,7 @@ class AtomRepresentation:
             self.maximumPower = atom.power
 
 class CanonicalAtom:
+#    __slots__ = [ "name", "power", "node" ]
     def __init__(self, name, power, node):
         self.name = name
         self.power = 1
@@ -45,6 +47,7 @@ class CanonicalAtom:
         return key
 
 class CanonicalSubform:
+#    __slots__ = [ "atoms", "coefficient", "key"]
     def __init__(self):
         self.atoms = {}
         self.coefficient = 1
@@ -92,6 +95,7 @@ class CanonicalSubform:
 #        pass
 
 class CanonicalForm:
+#    __slots__ = "subforms"
     def __init__(self):
         self.subforms = {}
 #        self.subformsDown = []
@@ -182,7 +186,7 @@ class KeyGenerator:
             
             for newInp in newInputs:
                 
-                if not newInp in self.input2form:
+                if not newInp in self.inputNodes:
                     self.inputNodes.append(newInp)
                     name = "i"+str(self.inpInd)
                     self.inpInd+=1
@@ -273,7 +277,6 @@ class KeyGenerator:
     def generateKey(self ):
         sortedNodes = list(nx.topological_sort(self.subgraph))
         
-        self.input2form = {}
         self.outputNodes = []
         
         self.inpInd = 0
@@ -289,7 +292,6 @@ class KeyGenerator:
         self.subgraph = self.graph.subgraph(self.selectedNodes).copy()
         
     def copyOutputForms(self, isomorph):
-        self.input2form = deepcopy(isomorph.input2form)
 #        self.inputNodes = deepcopy(isomorph.inputNodes)
         self.inpInd = isomorph.inpInd
         self.outputNodes = deepcopy(isomorph.outputNodes)

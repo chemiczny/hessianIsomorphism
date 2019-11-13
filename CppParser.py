@@ -246,7 +246,7 @@ if __name__ == "__main__":
     cppParser.parse()
 #    cppParser.saveGraphFunction("test.pickle")
 #    cppParser.loadGraphFunction()
-    cppParser.writeTest("dupa2.cpp")
+    cppParser.writeTest("dupa2.cpp", "perf")
     
     
     

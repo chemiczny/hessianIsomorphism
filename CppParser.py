@@ -61,7 +61,7 @@ class CppParser:
         
 #        newFunction.printingMode = True
         
-    def writeTest(self, testFilename , testCase = "prediction" ):
+    def writeTest(self, testFilename , testCase = "prediction", reuseVariables = False ):
         if not self.functions:
             return
         
@@ -89,7 +89,10 @@ class CppParser:
         testFile.write(line)
         cppF.close()
         
-        newFunction.writeFunctionFromGraph( "dupa" , testFile )
+        if reuseVariables:
+            newFunction.writeFunctionFromGraphVariableReuse("dupa", testFile)
+        else:
+            newFunction.writeFunctionFromGraph( "dupa" , testFile )
 #        newFunction.histogramOfLevels("+")
 #        newFunction.histogramOfLevels("*")
 #        newFunction.histogramOfLevels("/")
@@ -239,14 +242,14 @@ class CppParser:
 if __name__ == "__main__":
 #    testFile = "testData/short.cpp"
 #    testFile = "testData/d2_ne_ss_AA.ey.cpp"
-#    testFile = "testData/optimized/d2_ee_pppp_AA.ey.cpp"
-    testFile = "testData/d2_ee_ppps_AA.ey.cpp"
+    testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_ppps_AA.ey.cpp"
+#    testFile = "testData/d2_ee_ppps_AA.ey.cpp"
     
     cppParser = CppParser(testFile)
     cppParser.parse()
 #    cppParser.saveGraphFunction("test.pickle")
 #    cppParser.loadGraphFunction()
-    cppParser.writeTest("dupa2.cpp", "perf")
+    cppParser.writeTest("dupa.cpp", testCase="performance", reuseVariables=False)
     
     
     

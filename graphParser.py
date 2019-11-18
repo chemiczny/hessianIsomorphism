@@ -624,6 +624,117 @@ class GraphParser:
                 
         
         file.write("}\n")
+            
+    def rebuildVariableNames(self, sortedNodes):
+        
+        constantIndex = 0
+        variables2reuse = []
+        
+        for node in sortedNodes:            
+            if self.graph.nodes[node]["kind"] != "middle":
+                continue
+            
+            nodeVariable = self.graph.nodes[node]["variable"]
+            
+            
+            if not variables2reuse:
+                self.graph.nodes[node]["newDefinition"] = True
+                if not nodeVariable or "dupa" in str(nodeVariable):
+                    self.graph.nodes[node]["variable"] = "dupa"+str(constantIndex)
+                    constantIndex += 1
+                    
+            else:
+                self.graph.nodes[node]["variable"] = variables2reuse.pop()
+                self.graph.nodes[node]["newDefinition"] = False
+                
+            self.graph.nodes[node]["generatedChildren"] = 0
+            
+            parents = list(self.graph.predecessors( node))
+            
+            for parent in parents:
+                if self.graph.nodes[parent]["kind"] != "middle":
+                    continue
+                
+                self.graph.nodes[parent]["generatedChildren"] += 1
+                parentChildrenNo = len( list( self.graph.successors(parent ) ))
+                
+                if parentChildrenNo == self.graph.nodes[parent]["generatedChildren"]:
+                    variables2reuse.append( self.graph.nodes[parent]["variable"] )
+            
+            
+            
+            
+    def writeFunctionFromGraphVariableReuse(self, functionName, file):
+        nodes = list(nx.topological_sort(self.graph))
+        
+        self.rebuildVariableNames(nodes)
+        
+        file.write("void "+functionName+"(\n")
+        
+        for arg in self.arguments[:-1]:
+            file.write( arg.type+" "+arg.name+" , \n" )
+            
+        lastArgument = self.arguments[-1]
+        file.write(lastArgument.type +" "+ lastArgument.name+" ) \n")
+        file.write("{\n")
+        
+        maxPrint = 100
+        printed = 0
+#        constantIndex = 0
+        for node in nodes:
+            if not "kind" in self.graph.nodes[node]:
+                print("nie ma rodzaju!", node)
+                print(self.graph.nodes[node])
+            
+            if self.graph.nodes[node]["kind"] == "input":
+                print("wejsciowy", node, self.graph.nodes[node])
+                continue
+            
+            else:
+                inputList = self.prepareInputList(self.graph, node)
+                        
+                fixType = self.graph.nodes[node]["fix"]
+                
+                if fixType == "prefix" and len(inputList) > 1:
+                    raise Exception("One argument prefix operator with more arguments!")
+                    
+#                nodeVariable = self.graph.nodes[node]["variable"]
+#                if not nodeVariable or "dupa" in str(nodeVariable):
+#                    self.graph.nodes[node]["variable"] = "dupa"+str(constantIndex)
+#                    constantIndex += 1
+                    
+                if self.graph.nodes[node]["kind"] == "middle":
+                    if self.graph.nodes[node]["newDefinition"]:
+                        file.write("    double "+self.graph.nodes[node]["variable"]+" = ")
+                    else:
+                        file.write("    "+self.graph.nodes[node]["variable"]+" = ")
+                elif self.graph.nodes[node]["kind"] == "output":
+                    file.write("    "+self.graph.nodes[node]["variable"]+" += ")
+                else:
+                    raise Exception("Unknown kind of node!")
+                
+                operator = self.graph.nodes[node]["operator"]
+                if fixType == "prefix":
+                    file.write(operator+inputList[0])
+                elif fixType == "prefixBrackets":
+                    inputStr = " , ".join(inputList)
+                    file.write(operator + "("+inputStr+")")
+                elif fixType == "infix":
+                    file.write(  operator.join( inputList ) )
+                elif fixType == "postfix":
+                    file.write(inputList[0]+operator)
+                else:
+                    raise Exception("Uknown operator type")
+                    
+                file.write(";\n")
+                
+                if self.printingMode and printed < maxPrint:
+                    file.write('std::cout<<"'+self.graph.nodes[node]["variable"]+'"<<" "<<'+self.graph.nodes[node]["variable"]+"<<std::endl;\n")
+                    printed+=1
+                
+                
+        
+        file.write("}\n")
     def rebuildGraph(self):
         oldGraph, self.graph = self.graph, nx.DiGraph()
 #        oldVariables2nodes = deepcopy(self.variables2nodes)

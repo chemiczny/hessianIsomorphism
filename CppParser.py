@@ -37,11 +37,11 @@ class CppParser:
         
         cppF.close()
         
-        print("szukam klastrow ")
+#        print("szukam klastrow ")
         newFunction.findClusters()
-        print("przebudowuje graf ", len(newFunction.graph.nodes))
+#        print("przebudowuje graf ", len(newFunction.graph.nodes))
         newFunction.rebuildGraph()
-        print("Done ",len(newFunction.graph.nodes) )
+#        print("Done ",len(newFunction.graph.nodes) )
 #        newFunction.analysePools()
         
 #        print("szukam slepych uliczek")
@@ -184,16 +184,17 @@ class CppParser:
         else:
             testFile.write("""
             const clock_t begin_old_time = clock();
-            for( int i = 0; i < 10000 ; i ++ )\n""")
+            for( int i = 0; i < 1000000 ; i ++ )\n""")
             testFile.write("     "+newFunction.name+"( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, hxx, hxy, hxz, hyx, hyy,hyz, hzx, hzy, hzz );\n")
             testFile.write("""
             const clock_t old_time = clock() - begin_old_time;
             const clock_t begin_new_time = clock();
-            for( int i = 0; i < 10000 ; i ++ )\n""")
+            for( int i = 0; i < 1000000 ; i ++ )\n""")
             testFile.write("     dupa( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, hTestxx, hTestxy, hTestxz, hTestyx, hTestyy,hTestyz, hTestzx, hTestzy, hTestzz );\n")
             testFile.write("""
             const clock_t new_time = clock() - begin_new_time;
-            std::cout<<old_time<<" "<<new_time<<std::endl;
+            std::cout<<"stary czas: "<<old_time<<std::endl;
+            std::cout<<"nowy  czas: "<<new_time<<std::endl;
             """)
         testFile.write("return 0;\n}\n")
         
@@ -249,7 +250,7 @@ if __name__ == "__main__":
     cppParser.parse()
 #    cppParser.saveGraphFunction("test.pickle")
 #    cppParser.loadGraphFunction()
-    cppParser.writeTest("dupa.cpp", testCase="performance", reuseVariables=False)
+    cppParser.writeTest("dupa.cpp", testCase="performance", reuseVariables=True)
     
     
     

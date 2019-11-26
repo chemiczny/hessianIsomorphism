@@ -35,9 +35,12 @@ class GraphParser:
         self.maxOutputSize = -1
         
         self.printingMode = False
+        self.nodeKeyByCanonicalForm = False
         
         if source and lastLine:
             self.read(source, lastLine)
+            
+        
             
     def plotGraph(self):
         plt.figure()
@@ -109,7 +112,8 @@ class GraphParser:
                 try:            
                     bottomNode = self.insertExpression2Graph(expr)
                     self.graph.nodes[bottomNode]["variable"] = newVar
-                except:
+                except Exception as e:
+                    print(e)
                     print(line)
                     print(newVar)
                     print(bottomNode)
@@ -303,9 +307,12 @@ class GraphParser:
         if not operatorName in self.operators:
             self.operators[operatorName] = -1           
             
-        key = "_".join(sorted(inputs)) + "_"+operatorName
-        if key in self.key2uniqueOperatorNodes and not forceNewNode:
-            return self.key2uniqueOperatorNodes[key]
+        if self.nodeKeyByCanonicalForm:
+            raise Exception("kurwa mac")
+        else:
+            key = "_".join(sorted(inputs)) + "_"+operatorName
+            if key in self.key2uniqueOperatorNodes and not forceNewNode:
+                return self.key2uniqueOperatorNodes[key]
             
         inp2fold = {}
         level = 0
@@ -331,13 +338,13 @@ class GraphParser:
             
         return nodeName
     
-    def insertNewAssimetricOperator(self, operatorName, inputs, fix):
+    def insertNewAssimetricOperator(self, operatorName, inputs, fix, forceNewNode = False):
 #        print("Dodaje wierzcholek: ", operatorName, "wejscia", inputs)
         if not operatorName in self.operators:
             self.operators[operatorName] = -1
             
         key = "_".join(inputs) + "_"+operatorName
-        if key in self.key2uniqueOperatorNodes:
+        if key in self.key2uniqueOperatorNodes and not forceNewNode:
             return self.key2uniqueOperatorNodes[key]
         
         level = 0
@@ -635,9 +642,9 @@ class GraphParser:
                 continue
             
             nodeVariable = self.graph.nodes[node]["variable"]
+            predecessorsNo = len(list(self.graph.predecessors( node)))
             
-            
-            if not variables2reuse:
+            if not variables2reuse or predecessorsNo == 1:
                 self.graph.nodes[node]["newDefinition"] = True
                 if not nodeVariable or "dupa" in str(nodeVariable):
                     self.graph.nodes[node]["variable"] = "dupa"+str(constantIndex)
@@ -655,8 +662,12 @@ class GraphParser:
                 if self.graph.nodes[parent]["kind"] != "middle":
                     continue
                 
-                self.graph.nodes[parent]["generatedChildren"] += 1
                 parentChildrenNo = len( list( self.graph.successors(parent ) ))
+                if parentChildrenNo == 1:
+                    continue
+                
+                self.graph.nodes[parent]["generatedChildren"] += 1
+               
                 
                 if parentChildrenNo == self.graph.nodes[parent]["generatedChildren"]:
                     variables2reuse.append( self.graph.nodes[parent]["variable"] )
@@ -693,40 +704,42 @@ class GraphParser:
             else:
                 inputList = self.prepareInputList(self.graph, node)
                         
+                succesorsNo = len(list(self.graph.successors( node)))
+                
                 fixType = self.graph.nodes[node]["fix"]
                 
                 if fixType == "prefix" and len(inputList) > 1:
                     raise Exception("One argument prefix operator with more arguments!")
                     
-#                nodeVariable = self.graph.nodes[node]["variable"]
-#                if not nodeVariable or "dupa" in str(nodeVariable):
-#                    self.graph.nodes[node]["variable"] = "dupa"+str(constantIndex)
-#                    constantIndex += 1
-                    
-                if self.graph.nodes[node]["kind"] == "middle":
-                    if self.graph.nodes[node]["newDefinition"]:
-                        file.write("    double "+self.graph.nodes[node]["variable"]+" = ")
-                    else:
-                        file.write("    "+self.graph.nodes[node]["variable"]+" = ")
-                elif self.graph.nodes[node]["kind"] == "output":
-                    file.write("    "+self.graph.nodes[node]["variable"]+" += ")
-                else:
-                    raise Exception("Unknown kind of node!")
-                
                 operator = self.graph.nodes[node]["operator"]
+                command = ""
                 if fixType == "prefix":
-                    file.write(operator+inputList[0])
+                    command = operator+inputList[0]
                 elif fixType == "prefixBrackets":
                     inputStr = " , ".join(inputList)
-                    file.write(operator + "("+inputStr+")")
+                    command = operator + "("+inputStr+")"
                 elif fixType == "infix":
-                    file.write(  operator.join( inputList ) )
+                    command =  operator.join( inputList ) 
                 elif fixType == "postfix":
-                    file.write(inputList[0]+operator)
+                    command = inputList[0]+operator
                 else:
                     raise Exception("Uknown operator type")
                     
-                file.write(";\n")
+                if succesorsNo != 1 or len(command) > 80 :
+                    if self.graph.nodes[node]["kind"] == "middle":
+                        if self.graph.nodes[node]["newDefinition"]:
+                            file.write("    double "+self.graph.nodes[node]["variable"]+" = ")
+                        else:
+                            file.write("    "+self.graph.nodes[node]["variable"]+" = ")
+                    elif self.graph.nodes[node]["kind"] == "output":
+                        file.write("    "+self.graph.nodes[node]["variable"]+" += ")
+                    else:
+                        raise Exception("Unknown kind of node!")  
+                
+                    file.write(command)
+                    file.write(";\n")
+                else:
+                    self.graph.nodes[node]["variable"] = " ( " + command + " ) "
                 
                 if self.printingMode and printed < maxPrint:
                     file.write('std::cout<<"'+self.graph.nodes[node]["variable"]+'"<<" "<<'+self.graph.nodes[node]["variable"]+"<<std::endl;\n")

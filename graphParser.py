@@ -657,13 +657,19 @@ class GraphParser:
             self.graph.nodes[node]["generatedChildren"] = 0
             
             parents = list(self.graph.predecessors( node))
-            
+            continue
+        
             for parent in parents:
                 if self.graph.nodes[parent]["kind"] != "middle":
                     continue
                 
-                parentChildrenNo = len( list( self.graph.successors(parent ) ))
-                if parentChildrenNo == 1:
+                parentChildren = list( self.graph.successors(parent ) )
+                parentChildrenNo = len( parentChildren )
+                firstFold = 0
+                if parentChildren:
+                    firstFold = self.graph[parent][parentChildren[0]]["fold"]
+                
+                if parentChildrenNo == 1 and firstFold == 1:
                     continue
                 
                 self.graph.nodes[parent]["generatedChildren"] += 1
@@ -704,7 +710,11 @@ class GraphParser:
             else:
                 inputList = self.prepareInputList(self.graph, node)
                         
-                succesorsNo = len(list(self.graph.successors( node)))
+                succesors = list(self.graph.successors( node))
+                succesorsNo = len(succesors)
+                firstFold = 0
+                if succesors:
+                    firstFold = self.graph[node][succesors[0]]["fold"]
                 
                 fixType = self.graph.nodes[node]["fix"]
                 
@@ -725,7 +735,7 @@ class GraphParser:
                 else:
                     raise Exception("Uknown operator type")
                     
-                if succesorsNo != 1 or len(command) > 80 :
+                if succesorsNo != 1 or len(command) > 80 or firstFold != 1:
                     if self.graph.nodes[node]["kind"] == "middle":
                         if self.graph.nodes[node]["newDefinition"]:
                             file.write("    double "+self.graph.nodes[node]["variable"]+" = ")
@@ -741,7 +751,7 @@ class GraphParser:
                 else:
                     self.graph.nodes[node]["variable"] = " ( " + command + " ) "
                 
-                if self.printingMode and printed < maxPrint:
+                if self.printingMode and printed < maxPrint and "C" in self.graph.nodes[node]["variable"]:
                     file.write('std::cout<<"'+self.graph.nodes[node]["variable"]+'"<<" "<<'+self.graph.nodes[node]["variable"]+"<<std::endl;\n")
                     printed+=1
                 

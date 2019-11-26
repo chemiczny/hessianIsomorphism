@@ -61,12 +61,13 @@ class CppParser:
         
 #        newFunction.printingMode = True
         
-    def writeTest(self, testFilename , testCase = "prediction", reuseVariables = False ):
+    def writeTest(self, testFilename , testCase = "prediction", reuseVariables = False, printingMode = False ):
         if not self.functions:
             return
         
         newFunction = self.functions[0]
-                
+        newFunction.printingMode = printingMode
+        
         testFile = open(testFilename ,'w')
         
         testFile.write("#include <cmath>\n")
@@ -250,7 +251,7 @@ if __name__ == "__main__":
     cppParser.parse()
 #    cppParser.saveGraphFunction("test.pickle")
 #    cppParser.loadGraphFunction()
-    cppParser.writeTest("dupa.cpp", testCase="performance", reuseVariables=True)
+    cppParser.writeTest("dupa.cpp", testCase="prediction", reuseVariables=True, printingMode= False)
     
     
     

@@ -399,11 +399,24 @@ class GraphOptimizer(GraphParser):
         print("Total wtf: ", totalWTF)
         
     def findDeadEnds(self):
+        seeds = []
         for node in self.graph.nodes:
             successorsNo = len(list(self.graph.successors(node)))
             
             if successorsNo == 0 and self.graph.nodes[node]["kind"] != "output":
-                print("slepa uliczka!!!!!")
+                seeds.append(node)
+                
+                
+        while seeds:
+            node = seeds.pop()
+            
+            predecessors = list(self.graph.predecessors(node))
+            self.graph.remove_node(node)
+            
+            for p in predecessors:
+                successorsNo = len(list(self.graph.successors(p)))
+                if successorsNo == 0 and self.graph.nodes[p]["kind"] != "output":
+                    seeds.append(p)
 
     def analyseSubGraphOverlaping(self):
         totalNodesNo = len( list( self.graph.nodes ) )

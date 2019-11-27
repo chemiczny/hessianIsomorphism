@@ -8,7 +8,7 @@ Created on Thu May 30 11:19:31 2019
 
 import networkx as nx
 from copy import deepcopy
-from graphParser import GraphParser
+#from graphParser import GraphParser
 
 class AtomRepresentation:
     __slots__ = [ "name", "node", "maximumPower", "positiveOccurrence", "negativeOccurence" ]
@@ -132,7 +132,7 @@ class CanonicalForm:
                 newForm = deepcopy( temp[s1key] )
                 newForm.multiply( canonicalForm.subforms[s2key] )
                 
-                newKey = newForm.getKey()
+                newKey = newForm.generateKey()
                 
                 if newKey in self.subforms:
                     self.subforms[newKey].coefficient += newForm.coefficient

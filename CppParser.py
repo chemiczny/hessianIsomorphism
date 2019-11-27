@@ -45,11 +45,11 @@ class CppParser:
 #        newFunction.analysePools()
         
 #        print("szukam slepych uliczek")
-#        newFunction.findDeadEnds()
+        newFunction.findDeadEnds()
         
 #        print("Analizuje nawiasy: ")
 #        newFunction.simplifyBrackets()
-#        newFunction.rebuildGraph()
+        newFunction.rebuildGraph()
 #        newFunction.multiplyNodes()
 #        newFunction.rebuildGraph()
 #        newFunction.histogramOfSuccessors()
@@ -67,6 +67,7 @@ class CppParser:
         
         newFunction = self.functions[0]
         newFunction.printingMode = printingMode
+        newFunction.nodeKeyByCanonicalForm = True
         
         testFile = open(testFilename ,'w')
         
@@ -161,25 +162,25 @@ class CppParser:
               double diffzz = std::abs(hzz[i] - hTestzz[i]);
               
               if ( diffxx > 0.00000001 )
-                std::cout<<"ERROR XX !!! "<<hxx[i]<<" "<<hTestxx[i]<<std::endl;
+                std::cout<<"ERROR XX !!! "<<hxx[i]<<" "<<hTestxx[i]<<" "<<i<<std::endl;
               if ( diffxy > 0.00000001 )
-                std::cout<<"ERROR XY !!! "<<hxy[i]<<" "<<hTestxy[i]<<std::endl;
+                std::cout<<"ERROR XY !!! "<<hxy[i]<<" "<<hTestxy[i]<<" "<<i<<std::endl;
               if ( diffxz > 0.00000001 )
-                std::cout<<"ERROR XZ !!! "<<hxz[i]<<" "<<hTestxz[i]<<std::endl;
+                std::cout<<"ERROR XZ !!! "<<hxz[i]<<" "<<hTestxz[i]<<" "<<i<<std::endl;
                 
               if ( diffyx > 0.00000001 )
-                std::cout<<"ERROR YX !!! "<<hyz[i]<<" "<<hTestyx[i]<<std::endl;
+                std::cout<<"ERROR YX !!! "<<hyz[i]<<" "<<hTestyx[i]<<" "<<i<<std::endl;
               if ( diffyy > 0.00000001 )
-                std::cout<<"ERROR YY !!! "<<hyy[i]<<" "<<hTestyy[i]<<std::endl;
+                std::cout<<"ERROR YY !!! "<<hyy[i]<<" "<<hTestyy[i]<<" "<<i<<std::endl;
               if ( diffyz > 0.00000001 )
-                std::cout<<"ERROR YZ !!! "<<hyz[i]<<" "<<hTestyz[i]<<std::endl;
+                std::cout<<"ERROR YZ !!! "<<hyz[i]<<" "<<hTestyz[i]<<" "<<i<<std::endl;
                 
               if ( diffzx > 0.00000001 )
-                std::cout<<"ERROR ZX !!! "<<hzx[i]<<" "<<hTestzx[i]<<std::endl;
+                std::cout<<"ERROR ZX !!! "<<hzx[i]<<" "<<hTestzx[i]<<" "<<i<<std::endl;
               if ( diffzy > 0.00000001 )
-                std::cout<<"ERROR ZY !!! "<<hzy[i]<<" "<<hTestzy[i]<<std::endl;
+                std::cout<<"ERROR ZY !!! "<<hzy[i]<<" "<<hTestzy[i]<<" "<<i<<std::endl;
               if ( diffzz > 0.00000001 )
-                std::cout<<"ERROR ZZ !!! "<<hzz[i]<<" "<<hTestzz[i]<<std::endl;
+                std::cout<<"ERROR ZZ !!! "<<hzz[i]<<" "<<hTestzz[i]<<" "<<i<<std::endl;
               }                       
                            """)
         else:
@@ -244,14 +245,14 @@ class CppParser:
 if __name__ == "__main__":
 #    testFile = "testData/short.cpp"
 #    testFile = "testData/d2_ne_ss_AA.ey.cpp"
-    testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_ppps_AA.ey.cpp"
+    testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_pppp_AA.ey.cpp"
 #    testFile = "testData/d2_ee_ppps_AA.ey.cpp"
     
     cppParser = CppParser(testFile)
     cppParser.parse()
 #    cppParser.saveGraphFunction("test.pickle")
 #    cppParser.loadGraphFunction()
-    cppParser.writeTest("dupa.cpp", testCase="prediction", reuseVariables=True, printingMode= False)
+    cppParser.writeTest("dupa.cpp", testCase="performance", reuseVariables=True, printingMode= False)
     
     
     

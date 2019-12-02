@@ -105,6 +105,8 @@ class GraphOptimizer(GraphParser):
                 elementOperator = self.graph.nodes[element]["operator"]
                 if elementOperator != operator:
                     continue
+            else:
+                continue
             
             elementSuccesors = set( self.graph.successors( element) )
             notAcceptableSuccesors = elementSuccesors - confirmedCluster

@@ -10,7 +10,7 @@ import shlex
 import matplotlib.pyplot as plt
 from copy import deepcopy
 
-from keyGenerator import CanonicalAtom, CanonicalSubform, CanonicalForm
+from canonical import CanonicalAtom, CanonicalSubform, CanonicalForm
 
 from variable import Variable
 from parsingUtilities import isfloat
@@ -51,15 +51,19 @@ class GraphParser:
         nx.draw_networkx(self.graph, layout)
         
     def read(self, source, lastLine):
-        name = lastLine.replace("void" , "")
-        name = name.replace("(", "")
+        lineS = lastLine.split("(")
+        namePart = lineS[0]
+        name = namePart.replace("void" , "")
         name = name.strip()
         self.name = name
         
-        self.readArguments(source)
+        self.readArguments(source, lineS[1])
         self.readBody(source)
         
-    def readArguments(self, source):
+    def readArguments(self, source, additional= ""):
+        if additional.strip():
+            self.arguments += self.getArgsFromLine(additional)
+        
         line = source.readline()
         
         while not ")" in line:
@@ -91,9 +95,19 @@ class GraphParser:
         for arg in self.arguments:
             if arg.type == "double* const":
                 self.outputs[arg.name] = arg
+                print("Wykryto output: ", arg.name)
             else:
                 self.inputs[arg.name] = arg
 #                self.graph.add_node( arg.name)
+                
+    def outputInLine(self, line):
+        if not line:
+            return False
+        
+        temp = line.split("[")[0]
+        varName = temp.strip()
+            
+        return varName in self.outputs
                 
     def readBody(self, source):
         line = source.readline()
@@ -104,54 +118,62 @@ class GraphParser:
         line = source.readline()
             
         while not "}" in line or "//" in line :
-            if not "//" in line and "=" in line and "double" in line:
-#                print(line)
+            beforeEq = ""
+            afterEq = ""
+            eq = ""
+            
+            if "+=" in line:
+                lineS = line.split("+=")
+                eq = "+="
+            elif "=" in line:
                 lineS = line.split("=")
-                expr = lineS[1]
+                eq = "="
+                
+            beforeEq = lineS[0].strip()
+            afterEq = lineS[1].strip()
+        
+            
+            outputInLine = self.outputInLine(beforeEq)
+            
+            if not "//" in line and eq != "" and "double" in line and not outputInLine:
+
+                expr = afterEq
+                maxLines = 10
+                lineId = 0
+                while not ";" in expr and lineId < maxLines:
+                    expr += source.readline()
+                    lineId += 1
+                    
+                if not ";" in expr:
+                    raise Exception("Ivalid expression!")
+                    
                 expr = expr.replace(";", "")
                 newVar = lineS[0]
                 newVar = newVar.split()[-1]
                 
-#                try:            
                 bottomNode = self.insertExpression2Graph(expr)
+                if not bottomNode:
+                    print(line)
                 self.graph.nodes[bottomNode]["variable"] = newVar
-#                except Exception as e:
-#                    print(e)
-#                    print(line)
-#                    print(newVar)
-#                    print(bottomNode)
-#                    print("kurwa")
-#                    print(self.lastBrackets)
-#                    print(self.lastTokenStack)
-#                    return
+                
                 self.variables2nodes[newVar] = bottomNode
                 
-#                if "[" in newVar and "]" in newVar:
-#                    self.outputs2nodes[newVar] = bottomNode
-#                    self.graph.nodes[bottomNode]["kind"] = "output"
-            elif "+=" in line:
-                lineS = line.split("+=")
-                expr = lineS[1]
+            elif outputInLine:
+                expr = afterEq
                 expr = expr.replace(";", "")
-                newVar = lineS[0]
+                newVar = beforeEq
                 
                 argNumber = int( newVar.split("[")[1].replace("]","") )
                 self.maxOutputSize = max(self.maxOutputSize, argNumber)
                 
-#                try:            
                 bottomNode = self.insertExpression2Graph(expr)
                 if "variables" in self.graph.nodes[bottomNode]:
                     self.graph.nodes[bottomNode]["variables"].append(newVar)
                 else:
                     self.graph.nodes[bottomNode]["variables"] = [ newVar ]
-#                except:
-#                    print(line)
-#                    print(newVar)
-#                    print(bottomNode)
-#                    print("kurwa")
-#                    print(self.lastBrackets)
-#                    print(self.lastTokenStack)
-#                    return
+                    
+                    
+                self.graph.nodes[bottomNode]["eq"] = eq
                 self.variables2nodes[newVar] = bottomNode
                 
                 self.outputs2nodes[newVar] = bottomNode
@@ -337,6 +359,13 @@ class GraphParser:
         elif operator == "*":
             for inp in inputs[1:]:
                 newCanonicalForm.multiply( self.graph.nodes[inp]["form"] )
+        elif operator == "-":
+            if len(inputs) == 1:
+                newCanonicalForm.reverseSign()
+            elif len(inputs) == 2:
+                newCanonicalForm.subtract(self.graph.nodes[inputs[1]]["form"])
+            else:
+                raise Exception("Substract operator with wrong number of arguments")
         else:
             raise Exception("Not supported operator for canonical labeling!")
             
@@ -350,7 +379,7 @@ class GraphParser:
             
         canonicalForm = None
 #        and self.generatedCanonicalLabels < 1196
-        if self.nodeKeyByCanonicalForm and operatorName in [ "+", "*" ] :
+        if self.nodeKeyByCanonicalForm and operatorName in [ "+", "*", "-" ] :
             canonicalForm = self.generateCanonicalForm(operatorName, inputs)
             key = canonicalForm.generateKey()
         else:
@@ -392,7 +421,13 @@ class GraphParser:
         if not operatorName in self.operators:
             self.operators[operatorName] = -1
             
-        key = "_".join(inputs) + "_"+operatorName
+        canonicalForm = None
+        if self.nodeKeyByCanonicalForm and operatorName in [ "-" ] :
+            canonicalForm = self.generateCanonicalForm(operatorName, inputs)
+            key = canonicalForm.generateKey()
+        else:
+            key = "_".join(sorted(inputs)) + "_"+operatorName
+            
         if key in self.key2uniqueOperatorNodes and not forceNewNode:
             return self.key2uniqueOperatorNodes[key]
         
@@ -407,6 +442,10 @@ class GraphParser:
         nodeName = operatorName + str( self.operators[operatorName] )
         self.key2uniqueOperatorNodes[key] = nodeName
         self.graph.add_node(nodeName, variable = None, kind = "middle", operator = operatorName, fix = fix, symmetric = False, level = level)
+        
+        if canonicalForm:
+            self.graph.nodes[nodeName]["form"] = canonicalForm
+            self.generatedCanonicalLabels += 1
         
         onlyUnique = 0 == len(set(inputs))-len(inputs)
         
@@ -784,27 +823,32 @@ class GraphParser:
                 else:
                     raise Exception("Uknown operator type")
                     
-                if succesorsNo != 1 or len(command) > 80 or firstFold != 1:
+                if succesorsNo != 1 or len(command) > 80 or firstFold != 1 or self.graph.nodes[node]["kind"] == "output":
                     if self.graph.nodes[node]["kind"] == "middle":
                         if self.graph.nodes[node]["newDefinition"]:
-                            file.write("    double "+self.graph.nodes[node]["variable"]+" = ")
+                            file.write("    double "+self.graph.nodes[node]["variable"]+" = "+ command + ";\n")
                         else:
-                            file.write("    "+self.graph.nodes[node]["variable"]+" = ")
+                            file.write("    "+self.graph.nodes[node]["variable"]+" = " + command + ";\n")
                     elif self.graph.nodes[node]["kind"] == "output":
-                        if len( self.graph.nodes[node]["variables"] ) == 1:
-                            file.write("    "+self.graph.nodes[node]["variables"][0]+" += ")
+                        eqOp = self.graph.nodes[node]["eq"]
+                        if len( self.graph.nodes[node]["variables"] ) == 1 and not "variable" in self.graph.nodes[node] :
+                            file.write("    "+self.graph.nodes[node]["variables"][0]+" "+eqOp+" ")
                         else:
-                            newConstant = "res"+str(constantResIndex)
+                            if not  self.graph.nodes[node]["variable"]:
+                                newConstant = "res"+str(constantResIndex)
+                            else:
+                                newConstant =self.graph.nodes[node]["variable"]
+                                
                             file.write("    const double "+newConstant+" = "+ command+";\n")
                             constantResIndex += 1
                             
                             for outputVar in self.graph.nodes[node]["variables"] :
-                                file.write("    "+outputVar+" += "+newConstant+";\n")
+                                file.write("    "+outputVar+" "+eqOp+" "+newConstant+";\n")
                     else:
                         raise Exception("Unknown kind of node!")  
                 
-                    file.write(command)
-                    file.write(";\n")
+#                    file.write(command)
+#                    file.write(";\n")
                 else:
                     self.graph.nodes[node]["variable"] = " ( " + command + " ) "
                 
@@ -844,6 +888,10 @@ class GraphParser:
                 self.graph.nodes[newNode]["kind"] = oldGraph.nodes[node]["kind"]
                 if "variables" in oldGraph.nodes[node]:
                     self.graph.nodes[newNode]["variables"] = oldGraph.nodes[node]["variables"]
+                    
+                if "eq" in oldGraph.nodes[node]:
+                    self.graph.nodes[newNode]["eq"] = oldGraph.nodes[node]["eq"]
+                    
                 oldGraph.nodes[node]["variable"] = newNode
                 
         print("stan operatorow: ")

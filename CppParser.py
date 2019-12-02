@@ -37,7 +37,7 @@ class CppParser:
         
         cppF.close()
         
-#        print("szukam klastrow ")
+        print("szukam klastrow ")
         newFunction.findClusters()
 #        print("przebudowuje graf ", len(newFunction.graph.nodes))
         newFunction.rebuildGraph()
@@ -50,6 +50,9 @@ class CppParser:
 #        print("Analizuje nawiasy: ")
 #        newFunction.simplifyBrackets()
         newFunction.rebuildGraph()
+#        print("znowu szukam klastrów")
+#        newFunction.findClusters()
+#        newFunction.rebuildGraph()
 #        newFunction.multiplyNodes()
 #        newFunction.rebuildGraph()
 #        newFunction.histogramOfSuccessors()
@@ -104,6 +107,11 @@ class CppParser:
         print("najwiekszy wymiar tablicy wyjsciowej: ",newFunction.maxOutputSize)
         testFile.write("\n\nint main() { \n")
         
+        arraysNo = len(newFunction.outputs)
+        
+        arraysRef = [ "hxx", "hxy", "hxz", "hyx", "hyy", "hyz" , "hzx", "hzy", "hzz"  ]
+        arrays2Test = [ name[0] + "Test" + name[1:] for name in arraysRef  ]
+        
 #        arraySize = "[27]"
         testFile.write( '\tdouble ae = 1.1; \n')
         testFile.write( '\tdouble xA = 1.1;\n')
@@ -144,8 +152,8 @@ class CppParser:
         
         if testCase == "prediction":
         
-            testFile.write(newFunction.name+"( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, hxx, hxy, hxz, hyx, hyy,hyz, hzx, hzy, hzz );\n")
-            testFile.write("dupa( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, hTestxx, hTestxy, hTestxz, hTestyx, hTestyy,hTestyz, hTestzx, hTestzy, hTestzz );\n")
+            testFile.write(newFunction.name+"( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, "+" , ".join(arraysRef[:arraysNo])+" );\n")
+            testFile.write("dupa( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, "+" , ".join(arrays2Test[:arraysNo])+" );\n")
             
             testFile.write("for ( int i = 0; i < "+arraysSize+"; i++) {\n")
             testFile.write("""
@@ -187,12 +195,12 @@ class CppParser:
             testFile.write("""
             const clock_t begin_old_time = clock();
             for( int i = 0; i < 1000000 ; i ++ )\n""")
-            testFile.write("     "+newFunction.name+"( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, hxx, hxy, hxz, hyx, hyy,hyz, hzx, hzy, hzz );\n")
+            testFile.write("     "+newFunction.name+"( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, "+" , ".join(arraysRef[:arraysNo])+" );\n")
             testFile.write("""
             const clock_t old_time = clock() - begin_old_time;
             const clock_t begin_new_time = clock();
             for( int i = 0; i < 1000000 ; i ++ )\n""")
-            testFile.write("     dupa( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, hTestxx, hTestxy, hTestxz, hTestyx, hTestyy,hTestyz, hTestzx, hTestzy, hTestzz );\n")
+            testFile.write("     dupa( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, "+" , ".join(arrays2Test[:arraysNo])+"  );\n")
             testFile.write("""
             const clock_t new_time = clock() - begin_new_time;
             std::cout<<"stary czas: "<<old_time<<std::endl;
@@ -245,14 +253,15 @@ class CppParser:
 if __name__ == "__main__":
 #    testFile = "testData/short.cpp"
 #    testFile = "testData/d2_ne_ss_AA.ey.cpp"
-    testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_pppp_AA.ey.cpp"
+#    testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_ppps_AA.ey.cpp"
+    testFile = "/home/michal/Projects/niedoida/gto_d1_kit/src/d_ee_dddd_A1.ey.cpp"
 #    testFile = "testData/d2_ee_ppps_AA.ey.cpp"
     
     cppParser = CppParser(testFile)
     cppParser.parse()
 #    cppParser.saveGraphFunction("test.pickle")
 #    cppParser.loadGraphFunction()
-    cppParser.writeTest("dupa.cpp", testCase="performance", reuseVariables=True, printingMode= False)
+    cppParser.writeTest("dupa.cpp", testCase="prediction", reuseVariables=True, printingMode= False)
     
     
     

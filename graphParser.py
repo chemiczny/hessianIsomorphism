@@ -15,6 +15,8 @@ from canonical import CanonicalAtom, CanonicalSubform, CanonicalForm
 from variable import Variable
 from parsingUtilities import isfloat
 
+import pickle
+
 class GraphParser:
     def __init__(self, source = None, lastLine = None):
         self.name = None
@@ -31,6 +33,7 @@ class GraphParser:
         self.outputs2nodes = {}
         
         self.key2uniqueOperatorNodes = {}
+        self.fastKey2canonicalKey = {}
         
         self.operators = { }
         
@@ -39,6 +42,7 @@ class GraphParser:
         
         self.printingMode = False
         self.nodeKeyByCanonicalForm = True
+        self.deleteFormAfterUse = False
         
         if source and lastLine:
             self.read(source, lastLine)
@@ -145,7 +149,7 @@ class GraphParser:
                     lineId += 1
                     
                 if not ";" in expr:
-                    raise Exception("Ivalid expression!")
+                    raise Exception("Invalid expression!")
                     
                 expr = expr.replace(";", "")
                 newVar = lineS[0]
@@ -335,24 +339,28 @@ class GraphParser:
         return self.parseExpression(fixedExprList)
         
     def generateCanonicalForm(self, operator, inputs ):
-        for inp in inputs:
-            if "form" in self.graph.nodes[inp]:
-                continue
-            
-            atomName = inp
-            
-            newAtom = CanonicalAtom(atomName, 1, atomName)
-                    
-            newSubform = CanonicalSubform()
-            newSubform.atoms[newAtom.name] = newAtom
-            
-            newForm = CanonicalForm()
-            newForm.subforms[ newSubform.getKey() ] = newSubform
-            
-            self.graph.nodes[inp]["form"] = newForm
-            
-        newCanonicalForm = deepcopy( self.graph.nodes[inputs[0]]["form"] )
+        inputSet = set(inputs)
         
+        for inp in inputSet:
+#            if "form" in self.graph.nodes[inp]:
+            self.graph.nodes[inp]["generatedChildren"] += 1
+#                continue
+#            
+#            atomName = inp
+#            
+#            newAtom = CanonicalAtom(atomName, 1, atomName)
+#                    
+#            newSubform = CanonicalSubform()
+#            newSubform.atoms[newAtom.name] = newAtom
+#            
+#            newForm = CanonicalForm()
+#            newForm.subforms[ newSubform.getKey() ] = newSubform
+#            
+#            self.graph.nodes[inp]["form"] = newForm
+#            self.graph.nodes[inp]["generatedChildren"] = 1
+            
+#        newCanonicalForm = deepcopy( self.graph.nodes[inputs[0]]["form"] )
+        newCanonicalForm = pickle.loads(pickle.dumps(self.graph.nodes[inputs[0]]["form"], -1))
         if operator == "+":
             for inp in inputs[1:]:
                 newCanonicalForm.add( self.graph.nodes[inp]["form"] )
@@ -369,8 +377,48 @@ class GraphParser:
         else:
             raise Exception("Not supported operator for canonical labeling!")
             
+        if self.deleteFormAfterUse:
+            for inp in inputSet:
+                childrenLen = len(list( self.graph.successors(inp) ))
+                if childrenLen == 0:
+                    continue
+                
+                childrenGenerated = self.graph.nodes[inp]["generatedChildren"]
+                
+                if childrenLen == childrenGenerated:
+                    del self.graph.nodes[inp]["form"] 
+                elif  childrenGenerated > childrenLen:
+                    raise Exception("Generated more children than possible "+str(childrenGenerated) + " "+str(childrenLen))
         
         return newCanonicalForm
+    
+    def generateFastKey(self, operatorName, inputs, symmetric = True):
+        inputSet = set(inputs)
+        
+        for inp in inputSet:
+            if "form" in self.graph.nodes[inp]:
+                continue
+            
+            atomName = inp
+            
+            newAtom = CanonicalAtom(atomName, 1, atomName)
+                    
+            newSubform = CanonicalSubform()
+            newSubform.atoms[newAtom.name] = newAtom
+            
+            newForm = CanonicalForm()
+            newForm.subforms[ newSubform.getKey() ] = newSubform
+            
+            self.graph.nodes[inp]["form"] = newForm
+            self.graph.nodes[inp]["generatedChildren"] = 0
+            self.graph.nodes[inp]["canonicalKey"] = newForm.generateKey()
+            
+        keyList = [ "("+ self.graph.nodes[inp]["canonicalKey"] + ")" for inp in inputs ]
+        
+        if symmetric:
+            keyList.sort()
+            
+        return "_".join(keyList)+"_"+operatorName
         
     def insertNewOperator(self, operatorName, inputs, fix , forceNewNode = False):
 #        print("Dodaje wierzcholek: ", operatorName, "wejscia", inputs)
@@ -378,10 +426,13 @@ class GraphParser:
             self.operators[operatorName] = -1           
             
         canonicalForm = None
-#        and self.generatedCanonicalLabels < 1196
         if self.nodeKeyByCanonicalForm and operatorName in [ "+", "*", "-" ] :
-            canonicalForm = self.generateCanonicalForm(operatorName, inputs)
-            key = canonicalForm.generateKey()
+            fastKey = self.generateFastKey(operatorName, inputs, True)
+            if not fastKey in self.fastKey2canonicalKey:
+                canonicalForm = self.generateCanonicalForm(operatorName, inputs)
+                key = canonicalForm.generateKey()
+            else:
+                key = self.fastKey2canonicalKey[fastKey]
         else:
             key = "_".join(sorted(inputs)) + "_"+operatorName
             
@@ -407,7 +458,10 @@ class GraphParser:
         
         if canonicalForm:
             self.graph.nodes[nodeName]["form"] = canonicalForm
+            self.graph.nodes[nodeName]["canonicalKey"] = key
+            self.graph.nodes[nodeName]["generatedChildren"] = 0
             self.generatedCanonicalLabels += 1
+            self.fastKey2canonicalKey[fastKey] = key
         
         for inp in inp2fold:
             if not inp in self.graph.nodes:
@@ -423,8 +477,12 @@ class GraphParser:
             
         canonicalForm = None
         if self.nodeKeyByCanonicalForm and operatorName in [ "-" ] :
-            canonicalForm = self.generateCanonicalForm(operatorName, inputs)
-            key = canonicalForm.generateKey()
+            fastKey = self.generateFastKey(operatorName, inputs, False)
+            if not fastKey in self.fastKey2canonicalKey:
+                canonicalForm = self.generateCanonicalForm(operatorName, inputs)
+                key = canonicalForm.generateKey()
+            else:
+                key = self.fastKey2canonicalKey[fastKey]
         else:
             key = "_".join(sorted(inputs)) + "_"+operatorName
             
@@ -445,7 +503,10 @@ class GraphParser:
         
         if canonicalForm:
             self.graph.nodes[nodeName]["form"] = canonicalForm
+            self.graph.nodes[nodeName]["canonicalKey"] = key
+            self.graph.nodes[nodeName]["generatedChildren"] = 0
             self.generatedCanonicalLabels += 1
+            self.fastKey2canonicalKey[fastKey] = key
         
         onlyUnique = 0 == len(set(inputs))-len(inputs)
         
@@ -866,6 +927,7 @@ class GraphParser:
         self.variables2nodes = {}
         self.key2uniqueOperatorNodes = {}
         self.operators = { }
+        self.fastKey2canonicalKey = {}
         self.generatedCanonicalLabels = 0
         
         nodes = list(nx.topological_sort(oldGraph))

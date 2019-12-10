@@ -5,7 +5,8 @@ Created on Fri Nov 29 11:01:07 2019
 
 @author: michal
 """
-from copy import deepcopy
+
+import pickle
 
 class CanonicalAtom:
 #    __slots__ = [ "name", "power", "node" ]
@@ -59,7 +60,8 @@ class CanonicalSubform:
             if atomKey in self.atoms:
                 self.atoms[atomKey].power += subform.atoms[atomKey].power
             else:
-                self.atoms[atomKey] = deepcopy(subform.atoms[atomKey])
+#                self.atoms[atomKey] = deepcopy(subform.atoms[atomKey])
+                self.atoms[atomKey] = pickle.loads(pickle.dumps(subform.atoms[atomKey], -1 ))
                 
         self.key = ""
     
@@ -104,7 +106,8 @@ class CanonicalForm:
         
         for s1key in temp:
             for s2key in canonicalForm.subforms:
-                newForm = deepcopy( temp[s1key] )
+#                newForm = deepcopy( temp[s1key] )
+                newForm = pickle.loads(pickle.dumps(temp[s1key] , -1))
                 newForm.multiply( canonicalForm.subforms[s2key] )
                 
                 newKey = newForm.generateKey()
@@ -119,7 +122,8 @@ class CanonicalForm:
             if subFormKey in self.subforms:
                 self.subforms[subFormKey].coefficient += canonicalForm.subforms[subFormKey].coefficient
             else:
-                self.subforms[subFormKey] = deepcopy(canonicalForm.subforms[subFormKey])
+#                self.subforms[subFormKey] = deepcopy(canonicalForm.subforms[subFormKey])
+                self.subforms[subFormKey] = pickle.loads(pickle.dumps(canonicalForm.subforms[subFormKey], -1))
                
         self.removeZeroSubforms()
                 
@@ -137,7 +141,8 @@ class CanonicalForm:
             if subFormKey in self.subforms:
                 self.subforms[subFormKey].coefficient -= canonicalForm.subforms[subFormKey].coefficient
             else:
-                self.subforms[subFormKey] = deepcopy(canonicalForm.subforms[subFormKey])
+#                self.subforms[subFormKey] = deepcopy(canonicalForm.subforms[subFormKey])
+                self.subforms[subFormKey] = pickle.loads(pickle.dumps( canonicalForm.subforms[subFormKey], -1))
                 self.subforms[subFormKey].coefficient *= -1
                 
         self.removeZeroSubforms()

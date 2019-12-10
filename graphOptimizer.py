@@ -400,6 +400,19 @@ class GraphOptimizer(GraphParser):
         print("Zjebane przez nastepcw: ", fuckedBySuccessors)
         print("Total wtf: ", totalWTF)
         
+    def dumplOutputCanonicalForm(self, file2write):
+        f2w = open(file2write, 'w')
+        
+        for key in self.key2uniqueOperatorNodes:
+            node = self.key2uniqueOperatorNodes[key]
+            kind = self.graph.nodes[node]["kind"]
+            
+            if kind == "output":
+                f2w.write(key)
+                f2w.write("\n")
+        
+        f2w.close()
+        
     def findDeadEnds(self):
         seeds = []
         for node in self.graph.nodes:

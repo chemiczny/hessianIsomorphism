@@ -17,6 +17,7 @@ class GraphOptimizer(GraphParser):
         GraphParser.__init__(self, source, lastLine)
     
     def findClusters(self):
+        self.log("Searching for cluster start...")
         clusterFound = True
         
         searchingStart = time()
@@ -69,6 +70,7 @@ class GraphOptimizer(GraphParser):
         print("znaleziono: ", clusterIt, " klastrow")
         print("najwiekszy: ", maxClusterSize)
         print("czas: ", timeTaken)
+        self.log("Searching for cluster finished.")
                 
     def transformCluster(self, clusterList):
         clusterList = clusterList[1:]
@@ -172,6 +174,7 @@ class GraphOptimizer(GraphParser):
         plt.show()
             
     def simplifyBrackets(self):
+        self.log("Simplifying brackets start...")
         searchingStart = time()
         sortedNodes = list(reversed(list( nx.topological_sort(self.graph) )))
         possibilities = 0
@@ -289,6 +292,7 @@ class GraphOptimizer(GraphParser):
         print("time taken: ", timeTaken)
         print("possibilities: ", possibilities)
         print("perfection: ", perfectMatch)
+        self.log("Simplifying brackets finished")
         
 #        cycles = list(nx.simple_cycles(self.graph))
 #        print("szukam cykli")

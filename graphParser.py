@@ -22,6 +22,9 @@ class GraphParser:
         self.name = None
         self.arguments = []
         
+        self.scrLog = "graphParser.log"
+        self.cleanLog()
+        
         self.graph = nx.DiGraph()
         self.graph.add_node("Pi",  variable = "Pi", kind = "input", level = 0)
         self.constants = [ "Pi" ]
@@ -47,7 +50,14 @@ class GraphParser:
         if source and lastLine:
             self.read(source, lastLine)
             
+    def cleanLog(self):
+        logF = open(self.scrLog, 'w')
+        logF.close()
         
+    def log(self, data):
+        logF = open(self.scrLog, 'a')
+        logF.write(data+ "\n")        
+        logF.close()
             
     def plotGraph(self):
         plt.figure()
@@ -114,6 +124,7 @@ class GraphParser:
         return varName in self.outputs
                 
     def readBody(self, source):
+        self.log("Reading function body start...")
         line = source.readline()
         
         if not "{" in line:
@@ -202,6 +213,7 @@ class GraphParser:
             
         print("stan operatorow: ")
         print(self.operators)
+        self.log("Reading function body finished")
             
     def insertExpression2Graph(self, expr):
         exprSplit = list(shlex.shlex(expr))
@@ -911,6 +923,7 @@ class GraphParser:
         
         file.write("}\n")
     def rebuildGraph(self):
+        self.log("Rebuild graph start...")
         oldGraph, self.graph = self.graph, nx.DiGraph()
 #        oldVariables2nodes = deepcopy(self.variables2nodes)
         
@@ -963,6 +976,7 @@ class GraphParser:
         print("Wykorzystano dotychczas wygenerowane formy: ", usedOldForms)
         print("stan operatorow: ")
         print(self.operators)
+        self.log("Rebuild graph finished")
         
     def prepareInputList(self, graph, node):
         predecessors = list(graph.predecessors( node))

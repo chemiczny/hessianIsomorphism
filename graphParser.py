@@ -342,24 +342,8 @@ class GraphParser:
         inputSet = set(inputs)
         
         for inp in inputSet:
-#            if "form" in self.graph.nodes[inp]:
             self.graph.nodes[inp]["generatedChildren"] += 1
-#                continue
-#            
-#            atomName = inp
-#            
-#            newAtom = CanonicalAtom(atomName, 1, atomName)
-#                    
-#            newSubform = CanonicalSubform()
-#            newSubform.atoms[newAtom.name] = newAtom
-#            
-#            newForm = CanonicalForm()
-#            newForm.subforms[ newSubform.getKey() ] = newSubform
-#            
-#            self.graph.nodes[inp]["form"] = newForm
-#            self.graph.nodes[inp]["generatedChildren"] = 1
-            
-#        newCanonicalForm = deepcopy( self.graph.nodes[inputs[0]]["form"] )
+
         newCanonicalForm = pickle.loads(pickle.dumps(self.graph.nodes[inputs[0]]["form"], -1))
         if operator == "+":
             for inp in inputs[1:]:
@@ -420,7 +404,7 @@ class GraphParser:
             
         return "_".join(keyList)+"_"+operatorName
         
-    def insertNewOperator(self, operatorName, inputs, fix , forceNewNode = False):
+    def insertNewOperator(self, operatorName, inputs, fix , forceNewNode = False, oldCanonicalForm = None):
 #        print("Dodaje wierzcholek: ", operatorName, "wejscia", inputs)
         if not operatorName in self.operators:
             self.operators[operatorName] = -1           
@@ -428,7 +412,10 @@ class GraphParser:
         canonicalForm = None
         if self.nodeKeyByCanonicalForm and operatorName in [ "+", "*", "-" ] :
             fastKey = self.generateFastKey(operatorName, inputs, True)
-            if not fastKey in self.fastKey2canonicalKey:
+            if oldCanonicalForm:
+                canonicalForm = oldCanonicalForm
+                key = canonicalForm.generateKey()
+            elif not fastKey in self.fastKey2canonicalKey:
                 canonicalForm = self.generateCanonicalForm(operatorName, inputs)
                 key = canonicalForm.generateKey()
             else:
@@ -470,7 +457,7 @@ class GraphParser:
             
         return nodeName
     
-    def insertNewAssimetricOperator(self, operatorName, inputs, fix, forceNewNode = False):
+    def insertNewAssimetricOperator(self, operatorName, inputs, fix, forceNewNode = False, oldCanonicalForm = None):
 #        print("Dodaje wierzcholek: ", operatorName, "wejscia", inputs)
         if not operatorName in self.operators:
             self.operators[operatorName] = -1
@@ -478,7 +465,10 @@ class GraphParser:
         canonicalForm = None
         if self.nodeKeyByCanonicalForm and operatorName in [ "-" ] :
             fastKey = self.generateFastKey(operatorName, inputs, False)
-            if not fastKey in self.fastKey2canonicalKey:
+            if oldCanonicalForm:
+                canonicalForm = oldCanonicalForm
+                key = canonicalForm.generateKey()
+            elif not fastKey in self.fastKey2canonicalKey:
                 canonicalForm = self.generateCanonicalForm(operatorName, inputs)
                 key = canonicalForm.generateKey()
             else:
@@ -931,7 +921,7 @@ class GraphParser:
         self.generatedCanonicalLabels = 0
         
         nodes = list(nx.topological_sort(oldGraph))
-        
+        usedOldForms = 0
         for node in nodes:
             kind = oldGraph.nodes[node]["kind"]
             
@@ -941,11 +931,22 @@ class GraphParser:
                 symmetry = oldGraph.nodes[node]["symmetric"]
                 inputsList = self.prepareInputList(oldGraph, node)
                 
-                if symmetry:
-                    newNode = self.insertNewOperator( oldGraph.nodes[node]["operator"], inputsList , oldGraph.nodes[node]["fix"] )
+                if "form" in oldGraph.nodes[node]:
+                    usedOldForms += 1
+                    if symmetry:
+                        newNode = self.insertNewOperator( oldGraph.nodes[node]["operator"], 
+                                                         inputsList , oldGraph.nodes[node]["fix"], False, oldGraph.nodes[node]["form"] )
+                    else:
+                        newNode = self.insertNewAssimetricOperator(oldGraph.nodes[node]["operator"], 
+                                                                   inputsList, oldGraph.nodes[node]["fix"], False, oldGraph.nodes[node]["form"] )
                 else:
-                    newNode = self.insertNewAssimetricOperator(oldGraph.nodes[node]["operator"], inputsList, oldGraph.nodes[node]["fix"] )
-            
+                    if symmetry:
+                        newNode = self.insertNewOperator( oldGraph.nodes[node]["operator"], 
+                                                         inputsList , oldGraph.nodes[node]["fix"] )
+                    else:
+                        newNode = self.insertNewAssimetricOperator(oldGraph.nodes[node]["operator"], 
+                                                                   inputsList, oldGraph.nodes[node]["fix"] )
+                
                 self.graph.nodes[newNode]["variable"] = oldGraph.nodes[node]["variable"]
                 self.graph.nodes[newNode]["kind"] = oldGraph.nodes[node]["kind"]
                 if "variables" in oldGraph.nodes[node]:
@@ -956,6 +957,10 @@ class GraphParser:
                     
                 oldGraph.nodes[node]["variable"] = newNode
                 
+                if "form" in oldGraph.nodes[node]:
+                    del oldGraph.nodes[node]["form"]
+                
+        print("Wykorzystano dotychczas wygenerowane formy: ", usedOldForms)
         print("stan operatorow: ")
         print(self.operators)
         

@@ -250,6 +250,7 @@ class GraphOptimizer(GraphParser):
             if maximumEdges2delete == len(predecessors):
                 perfectMatch+= 1
                 
+            nodes2deleteForm = []
             newInputs = []
             for node2change in nodes2change:
                 for node2extract in nodes2extract:
@@ -261,13 +262,27 @@ class GraphOptimizer(GraphParser):
                         
                 nodeFold = self.graph[node2change][node]["fold"]
                 self.graph.remove_edge(node2change, node)
+                nodes2deleteForm.append(node2change)
+                if "form" in self.graph.nodes[node2change]:
+                    del self.graph.nodes[node2change]["form"] 
+                    
                 newInputs += nodeFold * [ node2change ]
                 
             newOperatorNode1 = self.insertNewOperator( "+" , newInputs, "infix", True )
             newOperatorNode2 = self.insertNewOperator( "*", [ newOperatorNode1 ] + nodes2extract , "infix" , True)
             self.graph.add_edge(newOperatorNode2, node, fold = 1 )
+            nodes2deleteForm.append(node)
+            nodes2deleteForm.append(newOperatorNode1)
+            nodes2deleteForm.append(newOperatorNode2)
+            
             nodes2checkForIdentity =  nodes2change + [ node ]
             self.checkForIdentity(nodes2checkForIdentity)
+            
+            for n2df in nodes2deleteForm:
+                if n2df in self.graph.nodes:
+                    if "form" in self.graph.nodes[n2df]:
+                        del self.graph.nodes[n2df]["form"]
+                
             
                 
         timeTaken =time() - searchingStart
@@ -275,10 +290,10 @@ class GraphOptimizer(GraphParser):
         print("possibilities: ", possibilities)
         print("perfection: ", perfectMatch)
         
-        cycles = list(nx.simple_cycles(self.graph))
-        print("szukam cykli")
-        print(cycles)
-        print("i jak?")
+#        cycles = list(nx.simple_cycles(self.graph))
+#        print("szukam cykli")
+#        print(cycles)
+#        print("i jak?")
         
     def checkForIdentity(self, nodesList):
         for node in nodesList:

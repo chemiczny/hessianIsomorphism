@@ -5,7 +5,7 @@ Created on Fri Nov 29 11:01:07 2019
 
 @author: michal
 """
-
+#from copy import copy
 import pickle
 
 class CanonicalAtom:
@@ -60,8 +60,11 @@ class CanonicalSubform:
             if atomKey in self.atoms:
                 self.atoms[atomKey].power += subform.atoms[atomKey].power
             else:
+                #WTF?
+                self.atoms[atomKey] = subform.atoms[atomKey]
 #                self.atoms[atomKey] = deepcopy(subform.atoms[atomKey])
-                self.atoms[atomKey] = pickle.loads(pickle.dumps(subform.atoms[atomKey], -1 ))
+#                self.atoms[atomKey] = pickle.loads(pickle.dumps(subform.atoms[atomKey], -1 ))
+#                self.atoms[atomKey] = copy(subform.atoms[atomKey])
                 
         self.key = ""
     
@@ -108,6 +111,7 @@ class CanonicalForm:
             for s2key in canonicalForm.subforms:
 #                newForm = deepcopy( temp[s1key] )
                 newForm = pickle.loads(pickle.dumps(temp[s1key] , -1))
+                
                 newForm.multiply( canonicalForm.subforms[s2key] )
                 
                 newKey = newForm.generateKey()

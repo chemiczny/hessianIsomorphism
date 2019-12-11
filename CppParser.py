@@ -44,14 +44,14 @@ class CppParser:
 #        print("Done ",len(newFunction.graph.nodes) )
 #        newFunction.analysePools()
         
-#        print("szukam slepych uliczek")
+        print("szukam slepych uliczek")
         newFunction.findDeadEnds()
         newFunction.rebuildGraph()
-#        print("Analizuje nawiasy: ")
+        print("Analizuje nawiasy: ")
         newFunction.simplifyBrackets()
         newFunction.rebuildGraph()
         
-        newFunction.dumplOutputCanonicalForm("canonicalOutputs.dat")
+#        newFunction.dumplOutputCanonicalForm("canonicalOutputs.dat")
 #        newFunction.simplifyBrackets()
 #        newFunction.rebuildGraph()
 #        print("znowu szukam klastrów")
@@ -257,7 +257,7 @@ class CppParser:
 if __name__ == "__main__":
 #    testFile = "testData/short.cpp"
 #    testFile = "testData/d2_ne_ss_AA.ey.cpp"
-    testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_ppps_AA.ey.cpp"
+    testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_pppp_AA.ey.cpp"
 #    testFile = "/home/michal/Projects/niedoida/gto_d1_kit/src/d_ee_dddd_A3.ey.cpp"
 #    testFile = "testData/d2_ee_ppps_AA.ey.cpp"
     

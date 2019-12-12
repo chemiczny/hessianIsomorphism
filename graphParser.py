@@ -127,6 +127,8 @@ class GraphParser:
         self.log("Reading function body start...")
         line = source.readline()
         
+        expressionParsed = 0
+        
         if not "{" in line:
             print("cannot find body begin")
         
@@ -205,6 +207,10 @@ class GraphParser:
                 self.inputs[newVariable] = Variable(newVariable, "double *")
                 
             line = source.readline()
+            expressionParsed += 1
+            
+            if expressionParsed % 500 == 0:
+                self.log("Parsed "+str(expressionParsed)+ "expresions")
             
 #        self.plotGraph()
 #        print("zczytywanie skonczone")

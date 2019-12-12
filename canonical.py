@@ -13,7 +13,7 @@ class CanonicalAtom:
     def __init__(self, name, power, node):
         self.name = name
         self.power = 1
-        self.node = node
+#        self.node = node
         
     def getKey(self):
         key = self.name
@@ -27,14 +27,14 @@ class CanonicalSubform:
     def __init__(self):
         self.atoms = {}
         self.coefficient = 1
-        self.key = ""
+#        self.key = ""
         
     def getKey(self):
-        if self.key:
-            return self.key
+#        if self.key:
+#            return self.key
         
-        self.generateKey()
-        return self.key
+        return self.generateKey()
+#        return self.key
     
     def updateKeys(self):
         self.atoms, oldAtoms = {} , self.atoms

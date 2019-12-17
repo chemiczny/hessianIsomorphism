@@ -8,12 +8,56 @@ Created on Fri Nov 29 11:01:07 2019
 #from copy import copy
 import pickle
 
+class CanonicalAtomFactory:
+    def __init__(self):
+        self.key2atom = {}
+        
+    def clean(self):
+        self.key2atom = {}
+        
+    def createAtom(self, name, power):
+        if power != 1:
+            key = "{name}^power".format(name = name, power = power)
+        else:
+            key = name
+        
+        if not key in self.key2atom:
+            self.key2atom[key] = CanonicalAtom(name, power)
+            
+        return self.key2atom[key]
+
+__AtomFactory__ = CanonicalAtomFactory()
+
+class CanonicalSubformFactory:
+    def __init__(self):
+        self.key2subform = {}
+        
+    def clean(self):
+        self.key2subform = {}
+        
+    def createSubform(self, atomDict, coeff):
+        key = atomDict2subformKey(atomDict)+"*"+str(coeff)
+        global __AtomFactory__
+        
+        if not key in self.key2subform:
+            newSubform = CanonicalSubform()
+            newSubform.coefficient = coeff
+            
+            for atomName in atomDict:
+                power = atomDict[atomName]
+                newSubform.atoms[atomName] = __AtomFactory__.createAtom(atomName, power)
+                
+            self.key2subform[key] = newSubform
+        
+        return self.key2subform[key]
+        
+__SubformFactory__ = CanonicalSubformFactory()
+
 class CanonicalAtom:
 #    __slots__ = [ "name", "power", "node" ]
-    def __init__(self, name, power, node):
+    def __init__(self, name, power):
         self.name = name
-        self.power = 1
-#        self.node = node
+        self.power = power
         
     def getKey(self):
         key = self.name
@@ -58,7 +102,8 @@ class CanonicalSubform:
         
         for atomKey in subform.atoms:
             if atomKey in self.atoms:
-                self.atoms[atomKey].power += subform.atoms[atomKey].power
+#                self.atoms[atomKey].power += subform.atoms[atomKey].power
+                self.atoms[atomKey] = __AtomFactory__.createAtom( self.atoms[atomKey].name, self.atoms[atomKey].power +  subform.atoms[atomKey].power )
             else:
                 #WTF?
                 self.atoms[atomKey] = subform.atoms[atomKey]
@@ -67,6 +112,44 @@ class CanonicalSubform:
 #                self.atoms[atomKey] = copy(subform.atoms[atomKey])
                 
         self.key = ""
+        
+def subform2AtomDict(subform):
+    atomDict = {}
+    
+    for atomKey in subform.atoms:
+        atom = subform.atoms[atomKey]
+        atomDict[atom.name] = atom.power
+        
+    return atomDict
+    
+def subformMultAtomDict( subform1, subform2):
+    atomDict = {}
+    
+    for atomKey in subform1.atoms:
+        atom = subform1.atoms[atomKey]
+        atomDict[atom.name] = atom.power
+        
+    for atomKey in subform2.atoms:
+        atom = subform2.atoms[atomKey]
+        if atomKey in atomDict:
+            atomDict[atom.name] += atom.power
+        else:
+            atomDict[atom.name] = atom.power
+            
+    return atomDict
+
+def atomDict2subformKey(atomDict):
+    atomKeys = []
+    
+    for atomKey in atomDict:
+        power = atomDict[atomKey]
+        
+        if power == 1:
+            atomKeys.append(atomKey)
+        else:
+            atomKeys.append(atomKey+"^"+str(power))
+            
+    return "*".join(sorted(atomKeys))
     
 #    def divide(self):
 #        pass
@@ -110,24 +193,25 @@ class CanonicalForm:
         for s1key in temp:
             for s2key in canonicalForm.subforms:
 #                newForm = deepcopy( temp[s1key] )
-                newForm = pickle.loads(pickle.dumps(temp[s1key] , -1))
+                sub1 = temp[s1key]
+                sub2 = canonicalForm.subforms[s2key]
                 
-                newForm.multiply( canonicalForm.subforms[s2key] )
+                atomDict = subformMultAtomDict( sub1 , sub2 )
+                newKey = atomDict2subformKey(atomDict)
                 
-                newKey = newForm.generateKey()
-                
-                if newKey in self.subforms:
-                    self.subforms[newKey].coefficient += newForm.coefficient
+                if not newKey in self.subforms:
+                    self.subforms[newKey] = __SubformFactory__.createSubform( atomDict, sub1.coefficient*sub2.coefficient )
                 else:
-                    self.subforms[newKey] = newForm
+                    self.subforms[newKey] = __SubformFactory__.createSubform( atomDict, sub1.coefficient*sub2.coefficient  + self.subforms[newKey].coefficient )
     
     def add(self, canonicalForm):
         for subFormKey in canonicalForm.subforms:
             if subFormKey in self.subforms:
-                self.subforms[subFormKey].coefficient += canonicalForm.subforms[subFormKey].coefficient
+                atomDict = subform2AtomDict( self.subforms[subFormKey] )
+                self.subforms[subFormKey] = __SubformFactory__.createSubform(atomDict , self.subforms[subFormKey].coefficient + canonicalForm.subforms[subFormKey].coefficient)
             else:
 #                self.subforms[subFormKey] = deepcopy(canonicalForm.subforms[subFormKey])
-                self.subforms[subFormKey] = pickle.loads(pickle.dumps(canonicalForm.subforms[subFormKey], -1))
+                self.subforms[subFormKey] = canonicalForm.subforms[subFormKey]
                
         self.removeZeroSubforms()
                 
@@ -143,14 +227,16 @@ class CanonicalForm:
     def subtract(self, canonicalForm):
         for subFormKey in canonicalForm.subforms:
             if subFormKey in self.subforms:
-                self.subforms[subFormKey].coefficient -= canonicalForm.subforms[subFormKey].coefficient
+                atomDict = subform2AtomDict( self.subforms[subFormKey] )
+                self.subforms[subFormKey] = __SubformFactory__.createSubform(atomDict, self.subforms[subFormKey].coefficient - canonicalForm.subforms[subFormKey].coefficient )
             else:
 #                self.subforms[subFormKey] = deepcopy(canonicalForm.subforms[subFormKey])
-                self.subforms[subFormKey] = pickle.loads(pickle.dumps( canonicalForm.subforms[subFormKey], -1))
-                self.subforms[subFormKey].coefficient *= -1
+                atomDict = subform2AtomDict(canonicalForm.subforms[subFormKey])
+                self.subforms[subFormKey] = __SubformFactory__.createSubform(atomDict, canonicalForm.subforms[subFormKey].coefficient*-1)
                 
         self.removeZeroSubforms()
                 
     def reverseSign(self):
         for subFormKey in self.subforms:
-            self.subforms[subFormKey].coefficient *= -1
+            atomDict = subform2AtomDict(self.subforms[subFormKey])
+            self.subforms[subFormKey] = __SubformFactory__.createSubform(atomDict, self.subforms[subFormKey].coefficient*-1)

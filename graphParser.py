@@ -8,9 +8,8 @@ Created on Mon May 20 10:34:48 2019
 import networkx as nx
 import shlex
 import matplotlib.pyplot as plt
-from copy import deepcopy
 
-from canonical import CanonicalAtom, CanonicalSubform, CanonicalForm
+from canonical import __AtomFactory__, __SubformFactory__, CanonicalForm
 
 from variable import Variable
 from parsingUtilities import isfloat
@@ -210,7 +209,7 @@ class GraphParser:
             expressionParsed += 1
             
             if expressionParsed % 500 == 0:
-                self.log("Parsed "+str(expressionParsed)+ "expresions")
+                self.log("Parsed "+str(expressionParsed)+ " expresions")
             
 #        self.plotGraph()
 #        print("zczytywanie skonczone")
@@ -403,10 +402,10 @@ class GraphParser:
             
             atomName = inp
             
-            newAtom = CanonicalAtom(atomName, 1, atomName)
+#            newAtom =  __AtomFactory__.createAtom(atomName, 1)
                     
-            newSubform = CanonicalSubform()
-            newSubform.atoms[newAtom.name] = newAtom
+            newSubform = __SubformFactory__.createSubform( { atomName : 1 }, 1 )
+#            newSubform.atoms[newAtom.name] = newAtom
             
             newForm = CanonicalForm()
             newForm.subforms[ newSubform.getKey() ] = newSubform

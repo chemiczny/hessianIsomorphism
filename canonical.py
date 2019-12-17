@@ -35,8 +35,9 @@ class CanonicalSubformFactory:
     def clean(self):
         self.key2subform = {}
         
-    def createSubform(self, atomDict, coeff):
-        key = atomDict2subformKey(atomDict)+"*"+str(coeff)
+    def createSubform(self, atomDict, coeff, key = ""):
+        if not key:
+            key = atomDict2subformKey(atomDict)+"*"+str(coeff)
         global __AtomFactory__
         
         if not key in self.key2subform:
@@ -71,11 +72,11 @@ class CanonicalSubform:
     def __init__(self):
         self.atoms = {}
         self.coefficient = 1
-#        self.key = ""
+        self.key = ""
         
     def getKey(self):
-#        if self.key:
-#            return self.key
+        if self.key:
+            return self.key
         
         return self.generateKey()
 #        return self.key
@@ -112,6 +113,85 @@ class CanonicalSubform:
 #                self.atoms[atomKey] = copy(subform.atoms[atomKey])
                 
         self.key = ""
+        
+
+def multiplyForms(form1, form2):
+    newForm = CanonicalForm()
+    
+    for s1key in form1.subforms:
+        for s2key in form2.subforms:
+#                newForm = deepcopy( temp[s1key] )
+            sub1 = form1.subforms[s1key]
+            sub2 = form2.subforms[s2key]
+            
+            atomDict = subformMultAtomDict( sub1 , sub2 )
+            newKey = atomDict2subformKey(atomDict)
+            
+            if not newKey in newForm.subforms:
+                newCoeff = sub1.coefficient*sub2.coefficient
+                fullKey = newKey+"*"+str(newCoeff)
+                newForm.subforms[newKey] = __SubformFactory__.createSubform( atomDict, newCoeff, fullKey )
+            else:
+                newCoeff = sub1.coefficient*sub2.coefficient  + newForm.subforms[newKey].coefficient
+                fullKey = newKey+"*"+str(newCoeff)
+                newForm.subforms[newKey] = __SubformFactory__.createSubform( atomDict, newCoeff, fullKey )
+                
+    return newForm
+
+def addForms(form1, form2):
+    newForm = CanonicalForm()
+    
+    for subFormKey in form1.subforms:
+        newForm.subforms[subFormKey] = form1.subforms[subFormKey]
+    
+    for subFormKey in form2.subforms:
+        if subFormKey in newForm.subforms:
+            atomDict = subform2AtomDict( form2.subforms[subFormKey] )
+            newForm.subforms[subFormKey] = __SubformFactory__.createSubform(atomDict , form2.subforms[subFormKey].coefficient + newForm.subforms[subFormKey].coefficient)
+        else:
+#                self.subforms[subFormKey] = deepcopy(canonicalForm.subforms[subFormKey])
+            newForm.subforms[subFormKey] = form2.subforms[subFormKey]
+           
+#    return newForm
+    return removeZeroSubforms(newForm)
+            
+def removeZeroSubforms(form):
+    newForm = CanonicalForm()
+    key2delete = []
+    
+    for key in form.subforms:
+        if form.subforms[key].coefficient == 0:
+            key2delete.append(key)
+        else:
+            atomDict = subform2AtomDict( form.subforms[key] )
+            newForm.subforms[key] = __SubformFactory__.createSubform(atomDict , form.subforms[key].coefficient )
+            
+    return newForm
+
+def subtractForms(form1, form2):
+    newForm = CanonicalForm()
+    
+    for subFormKey in form1.subforms:
+        newForm.subforms[subFormKey] = form1.subforms[subFormKey]
+    
+    for subFormKey in form2.subforms:
+        if subFormKey in newForm.subforms:
+            atomDict = subform2AtomDict( newForm.subforms[subFormKey] )
+            newForm.subforms[subFormKey] = __SubformFactory__.createSubform(atomDict, newForm.subforms[subFormKey].coefficient - form2.subforms[subFormKey].coefficient )
+        else:
+#                self.subforms[subFormKey] = deepcopy(canonicalForm.subforms[subFormKey])
+            atomDict = subform2AtomDict(form2.subforms[subFormKey])
+            newForm.subforms[subFormKey] = __SubformFactory__.createSubform(atomDict, form2.subforms[subFormKey].coefficient*-1)
+            
+    return removeZeroSubforms(newForm)
+            
+def reverseFormSign(form):
+    newForm = CanonicalForm()
+    for subFormKey in form.subforms:
+        atomDict = subform2AtomDict(form.subforms[subFormKey])
+        newForm.subforms[subFormKey] = __SubformFactory__.createSubform(atomDict, form.subforms[subFormKey].coefficient*-1)
+        
+    return newForm
         
 def subform2AtomDict(subform):
     atomDict = {}
@@ -151,6 +231,7 @@ def atomDict2subformKey(atomDict):
             
     return "*".join(sorted(atomKeys))
     
+
 #    def divide(self):
 #        pass
 #    

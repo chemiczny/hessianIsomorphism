@@ -9,7 +9,8 @@ import networkx as nx
 import shlex
 import matplotlib.pyplot as plt
 
-from canonical import __AtomFactory__, __SubformFactory__, CanonicalForm
+from canonical import __SubformFactory__, CanonicalForm
+from canonical import addForms, multiplyForms, subtractForms, reverseFormSign
 
 from variable import Variable
 from parsingUtilities import isfloat
@@ -361,18 +362,22 @@ class GraphParser:
         for inp in inputSet:
             self.graph.nodes[inp]["generatedChildren"] += 1
 
-        newCanonicalForm = pickle.loads(pickle.dumps(self.graph.nodes[inputs[0]]["form"], -1))
+        newCanonicalForm = self.graph.nodes[inputs[0]]["form"]
         if operator == "+":
             for inp in inputs[1:]:
-                newCanonicalForm.add( self.graph.nodes[inp]["form"] )
+#                newCanonicalForm.add( self.graph.nodes[inp]["form"] )
+                newCanonicalForm = addForms( newCanonicalForm, self.graph.nodes[inp]["form"] )
         elif operator == "*":
             for inp in inputs[1:]:
-                newCanonicalForm.multiply( self.graph.nodes[inp]["form"] )
+#                newCanonicalForm.multiply( self.graph.nodes[inp]["form"] )
+                newCanonicalForm = multiplyForms(newCanonicalForm, self.graph.nodes[inp]["form"] )
         elif operator == "-":
             if len(inputs) == 1:
-                newCanonicalForm.reverseSign()
+#                newCanonicalForm.reverseSign()
+                newCanonicalForm = reverseFormSign(newCanonicalForm)
             elif len(inputs) == 2:
-                newCanonicalForm.subtract(self.graph.nodes[inputs[1]]["form"])
+#                newCanonicalForm.subtract(self.graph.nodes[inputs[1]]["form"])
+                newCanonicalForm = subtractForms( newCanonicalForm, self.graph.nodes[inputs[1]]["form"])
             else:
                 raise Exception("Substract operator with wrong number of arguments")
         else:

@@ -6,7 +6,7 @@ Created on Thu Apr 11 15:58:16 2019
 @author: michal
 """
 from graphOptimizer import GraphOptimizer
-from isomorphCollection import IsomorphCollection
+#from isomorphCollection import IsomorphCollection
 
 import pickle
 #import matplotlib.pyplot as plt

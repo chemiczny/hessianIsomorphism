@@ -9,7 +9,7 @@ Created on Thu May 30 11:19:31 2019
 import networkx as nx
 from copy import deepcopy
 from graphParser import GraphParser
-from canonical import CanonicalAtom, CanonicalSubform, CanonicalForm
+from canonical import CanonicalSubform, CanonicalForm
 
 class AtomRepresentation:
     __slots__ = [ "name", "node", "maximumPower", "positiveOccurrence", "negativeOccurence" ]

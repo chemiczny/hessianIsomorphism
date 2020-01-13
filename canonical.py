@@ -5,6 +5,8 @@ Created on Fri Nov 29 11:01:07 2019
 
 @author: michal
 """
+
+#import hashlib 
 #from copy import copy
 #import pickle
 
@@ -263,6 +265,7 @@ class CanonicalForm:
             keyList.append( newKey )
             
             
+#        return hashlib.md5(("+".join(sorted( keyList ))).encode())
         return "+".join(sorted( keyList ))
     
     def updateKeys(self):

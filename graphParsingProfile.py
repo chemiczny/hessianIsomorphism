@@ -13,7 +13,7 @@ pr = cProfile.Profile()
 pr.enable()
 
 
-testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_dppp_AA.ey.cpp"
+testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_ppps_AA.ey.cpp"
     
 cppParser = CppParser(testFile)
 cppParser.parse()

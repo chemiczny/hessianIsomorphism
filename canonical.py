@@ -265,7 +265,7 @@ class CanonicalForm:
             keyList.append( newKey )
             
             
-        return str(hashlib.md5(("+".join(sorted( keyList ))).encode()).digest())
+        return hashlib.md5(("+".join(sorted( keyList ))).encode()).digest()
 #        return "+".join(sorted( keyList ))
     
     def updateKeys(self):

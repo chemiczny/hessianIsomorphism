@@ -15,7 +15,7 @@ from canonical import addForms, multiplyForms, subtractForms, reverseFormSign
 from variable import Variable
 from parsingUtilities import isfloat
 
-import pickle
+#import pickle
 
 class GraphParser:
     def __init__(self, source = None, lastLine = None):
@@ -398,7 +398,7 @@ class GraphParser:
         
         return newCanonicalForm
     
-    def generateFastKey(self, operatorName, inputs, symmetric = True):
+    def generateInpForms(self, operatorName, inputs):
         inputSet = set(inputs)
         
         for inp in inputSet:
@@ -419,12 +419,12 @@ class GraphParser:
             self.graph.nodes[inp]["generatedChildren"] = 0
             self.graph.nodes[inp]["canonicalKey"] = newForm.generateKey()
             
-        keyList = [ "("+ self.graph.nodes[inp]["canonicalKey"] + ")" for inp in inputs ]
-        
-        if symmetric:
-            keyList.sort()
-            
-        return "_".join(keyList)+"_"+operatorName
+#        keyList = [ "("+ self.graph.nodes[inp]["canonicalKey"] + ")" for inp in inputs ]
+#        
+#        if symmetric:
+#            keyList.sort()
+#            
+#        return "_".join(keyList)+"_"+operatorName
         
     def insertNewOperator(self, operatorName, inputs, fix , forceNewNode = False, oldCanonicalForm = None):
 #        print("Dodaje wierzcholek: ", operatorName, "wejscia", inputs)
@@ -433,15 +433,16 @@ class GraphParser:
             
         canonicalForm = None
         if self.nodeKeyByCanonicalForm and operatorName in [ "+", "*", "-" ] :
-            fastKey = self.generateFastKey(operatorName, inputs, True)
+            self.generateInpForms(operatorName, inputs)
             if oldCanonicalForm:
                 canonicalForm = oldCanonicalForm
                 key = canonicalForm.generateKey()
-            elif not fastKey in self.fastKey2canonicalKey:
+#            elif not fastKey in self.fastKey2canonicalKey:
+            else:
                 canonicalForm = self.generateCanonicalForm(operatorName, inputs)
                 key = canonicalForm.generateKey()
-            else:
-                key = self.fastKey2canonicalKey[fastKey]
+#            else:
+#                key = self.fastKey2canonicalKey[fastKey]
         else:
             key = "_".join(sorted(inputs)) + "_"+operatorName
             
@@ -470,7 +471,7 @@ class GraphParser:
             self.graph.nodes[nodeName]["canonicalKey"] = key
             self.graph.nodes[nodeName]["generatedChildren"] = 0
             self.generatedCanonicalLabels += 1
-            self.fastKey2canonicalKey[fastKey] = key
+#            self.fastKey2canonicalKey[fastKey] = key
         
         for inp in inp2fold:
             if not inp in self.graph.nodes:
@@ -486,15 +487,16 @@ class GraphParser:
             
         canonicalForm = None
         if self.nodeKeyByCanonicalForm and operatorName in [ "-" ] :
-            fastKey = self.generateFastKey(operatorName, inputs, False)
+            self.generateInpForms(operatorName, inputs)
             if oldCanonicalForm:
                 canonicalForm = oldCanonicalForm
                 key = canonicalForm.generateKey()
-            elif not fastKey in self.fastKey2canonicalKey:
+#            elif not fastKey in self.fastKey2canonicalKey:
+            else:
                 canonicalForm = self.generateCanonicalForm(operatorName, inputs)
                 key = canonicalForm.generateKey()
-            else:
-                key = self.fastKey2canonicalKey[fastKey]
+#            else:
+#                key = self.fastKey2canonicalKey[fastKey]
         else:
             key = "_".join(sorted(inputs)) + "_"+operatorName
             
@@ -518,7 +520,7 @@ class GraphParser:
             self.graph.nodes[nodeName]["canonicalKey"] = key
             self.graph.nodes[nodeName]["generatedChildren"] = 0
             self.generatedCanonicalLabels += 1
-            self.fastKey2canonicalKey[fastKey] = key
+#            self.fastKey2canonicalKey[fastKey] = key
         
         onlyUnique = 0 == len(set(inputs))-len(inputs)
         

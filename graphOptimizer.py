@@ -21,7 +21,7 @@ class GraphOptimizer(GraphParser):
         clusterFound = True
         
         searchingStart = time()
-        maxClusterFound = 5000
+#        maxClusterFound = 5000
         clusterIt = 0
         maxClusterSize = 0
         sortedNodes = list(reversed(list( nx.topological_sort(self.graph) )))
@@ -63,8 +63,8 @@ class GraphOptimizer(GraphParser):
                 if clusterIt % 500 == 0:
                     print(clusterIt)
                 
-            if clusterIt > maxClusterFound:
-                break
+#            if clusterIt > maxClusterFound:
+#                break
                 
         timeTaken = time() - searchingStart
         print("znaleziono: ", clusterIt, " klastrow")

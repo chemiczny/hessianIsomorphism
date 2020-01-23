@@ -7,28 +7,6 @@ Created on Fri Nov 29 11:01:07 2019
 """
 
 import hashlib 
-#from copy import copy
-#import pickle
-
-#class CanonicalAtomFactory:
-#    def __init__(self):
-#        self.key2atom = {}
-#        
-#    def clean(self):
-#        self.key2atom = {}
-#        
-#    def createAtom(self, name, power):
-#        if power != 1:
-#            key = "{name}^power".format(name = name, power = power)
-#        else:
-#            key = name
-#        
-#        if not key in self.key2atom:
-#            self.key2atom[key] = CanonicalAtom(name, power)
-#            
-#        return self.key2atom[key]
-#
-#__AtomFactory__ = CanonicalAtomFactory()
 
 class CanonicalSubformFactory:
     def __init__(self):
@@ -46,29 +24,12 @@ class CanonicalSubformFactory:
             newSubform = CanonicalSubform()
             newSubform.coefficient = coeff
             newSubform.atoms = atomDict
-            
-#            for atomName in atomDict:
-#                power = atomDict[atomName]
-#                newSubform.atoms[atomName] = __AtomFactory__.createAtom(atomName, power)
                 
             self.key2subform[key] = newSubform
         
         return self.key2subform[key]
         
 __SubformFactory__ = CanonicalSubformFactory()
-
-#class CanonicalAtom:
-##    __slots__ = [ "name", "power" ]
-#    def __init__(self, name, power):
-#        self.name = name
-#        self.power = power
-#        
-#    def getKey(self):
-#        key = self.name
-#        if self.power != 1:
-#            key += "^"+str(self.power)
-#            
-#        return key
 
 def atomKey(name, power):
     key = name
@@ -257,7 +218,8 @@ class CanonicalForm:
         
         for subKey in self.subforms:
             subform = self.subforms[subKey]
-            newKey = subform.getKey()
+            
+            newKey = subKey
             
             if subform.coefficient != 1:
                 newKey += "*"+str(subform.coefficient)
@@ -277,56 +239,3 @@ class CanonicalForm:
             key = subform.generateKey()
             self.subforms[key] = subform
     
-    def multiply(self, canonicalForm):
-        temp, self.subforms = self.subforms , {}
-        
-        for s1key in temp:
-            for s2key in canonicalForm.subforms:
-#                newForm = deepcopy( temp[s1key] )
-                sub1 = temp[s1key]
-                sub2 = canonicalForm.subforms[s2key]
-                
-                atomDict = subformMultAtomDict( sub1 , sub2 )
-                newKey = atomDict2subformKey(atomDict)
-                
-                if not newKey in self.subforms:
-                    self.subforms[newKey] = __SubformFactory__.createSubform( atomDict, sub1.coefficient*sub2.coefficient )
-                else:
-                    self.subforms[newKey] = __SubformFactory__.createSubform( atomDict, sub1.coefficient*sub2.coefficient  + self.subforms[newKey].coefficient )
-    
-    def add(self, canonicalForm):
-        for subFormKey in canonicalForm.subforms:
-            if subFormKey in self.subforms:
-                atomDict = self.subforms[subFormKey].atoms
-                self.subforms[subFormKey] = __SubformFactory__.createSubform(atomDict , self.subforms[subFormKey].coefficient + canonicalForm.subforms[subFormKey].coefficient)
-            else:
-#                self.subforms[subFormKey] = deepcopy(canonicalForm.subforms[subFormKey])
-                self.subforms[subFormKey] = canonicalForm.subforms[subFormKey]
-               
-        self.removeZeroSubforms()
-                
-    def removeZeroSubforms(self):
-        key2delete = []
-        for key in self.subforms:
-            if self.subforms[key].coefficient == 0:
-                key2delete.append(key)
-                
-        for key in key2delete:
-            del self.subforms[key]
-    
-    def subtract(self, canonicalForm):
-        for subFormKey in canonicalForm.subforms:
-            if subFormKey in self.subforms:
-                atomDict = self.subforms[subFormKey].atoms
-                self.subforms[subFormKey] = __SubformFactory__.createSubform(atomDict, self.subforms[subFormKey].coefficient - canonicalForm.subforms[subFormKey].coefficient )
-            else:
-#                self.subforms[subFormKey] = deepcopy(canonicalForm.subforms[subFormKey])
-                atomDict = canonicalForm.subforms[subFormKey].atoms
-                self.subforms[subFormKey] = __SubformFactory__.createSubform(atomDict, canonicalForm.subforms[subFormKey].coefficient*-1)
-                
-        self.removeZeroSubforms()
-                
-    def reverseSign(self):
-        for subFormKey in self.subforms:
-            atomDict = self.subforms[subFormKey].atoms
-            self.subforms[subFormKey] = __SubformFactory__.createSubform(atomDict, self.subforms[subFormKey].coefficient*-1)

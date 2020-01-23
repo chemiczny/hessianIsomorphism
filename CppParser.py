@@ -119,19 +119,19 @@ class CppParser:
 #        arraySize = "[27]"
         testFile.write( '\tdouble ae = 1.1; \n')
         testFile.write( '\tdouble xA = 1.1;\n')
-        testFile.write( '\tdouble yA = 2.3;\n')
+        testFile.write( '\tdouble yA = 3.3;\n')
         testFile.write( '\tdouble zA = 1.6;\n')
         testFile.write( '\tdouble be = 1.7;\n')
-        testFile.write( '\tdouble xB = 0.1;\n')
+        testFile.write( '\tdouble xB = -0.9;\n')
         testFile.write( '\tdouble yB = 0.3;\n')
         testFile.write( '\tdouble zB = 0.6;\n')
         testFile.write( '\tdouble ce = 1.3;\n')
         testFile.write( '\tdouble xC = 1.4;\n')
-        testFile.write( '\tdouble yC = 2.7;\n')
+        testFile.write( '\tdouble yC = 1.8;\n')
         testFile.write( '\tdouble zC = 1.2;\n')
-        testFile.write( '\tdouble de = 1.5;\n')
-        testFile.write( '\tdouble xD = 0.9;\n')
-        testFile.write( '\tdouble yD = 2.2;\n')
+        testFile.write( '\tdouble de = 1.3;\n')
+        testFile.write( '\tdouble xD = -1.1;\n')
+        testFile.write( '\tdouble yD = 1.9;\n')
         testFile.write( '\tdouble zD = 1.3;\n')
         testFile.write( '\tdouble bs[] = { 0.7, 1.3, 1.5, 1.1, 0.8, 0.2, 0.15, 0.12, 0.1, 0.05};\n')
         testFile.write( '\tdouble hxx['+arraysSize+'] = {0};\n')
@@ -158,7 +158,7 @@ class CppParser:
         
             testFile.write(newFunction.name+"( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, "+" , ".join(arraysRef[:arraysNo])+" );\n")
             testFile.write("dupa( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, "+" , ".join(arrays2Test[:arraysNo])+" );\n")
-            
+            testFile.write("int valuesChecked[9] = {0};\n")
             testFile.write("for ( int i = 0; i < "+arraysSize+"; i++) {\n")
             testFile.write("""
               double diffxx = std::abs(hxx[i] - hTestxx[i]);
@@ -173,28 +173,69 @@ class CppParser:
               double diffzy = std::abs(hzy[i] - hTestzy[i]);
               double diffzz = std::abs(hzz[i] - hTestzz[i]);
               
-              if ( diffxx > 0.00000001 )
-                std::cout<<"ERROR XX !!! "<<hxx[i]<<" "<<hTestxx[i]<<" "<<i<<std::endl;
-              if ( diffxy > 0.00000001 )
-                std::cout<<"ERROR XY !!! "<<hxy[i]<<" "<<hTestxy[i]<<" "<<i<<std::endl;
-              if ( diffxz > 0.00000001 )
-                std::cout<<"ERROR XZ !!! "<<hxz[i]<<" "<<hTestxz[i]<<" "<<i<<std::endl;
-                
-              if ( diffyx > 0.00000001 )
-                std::cout<<"ERROR YX !!! "<<hyz[i]<<" "<<hTestyx[i]<<" "<<i<<std::endl;
-              if ( diffyy > 0.00000001 )
-                std::cout<<"ERROR YY !!! "<<hyy[i]<<" "<<hTestyy[i]<<" "<<i<<std::endl;
-              if ( diffyz > 0.00000001 )
-                std::cout<<"ERROR YZ !!! "<<hyz[i]<<" "<<hTestyz[i]<<" "<<i<<std::endl;
-                
-              if ( diffzx > 0.00000001 )
-                std::cout<<"ERROR ZX !!! "<<hzx[i]<<" "<<hTestzx[i]<<" "<<i<<std::endl;
-              if ( diffzy > 0.00000001 )
-                std::cout<<"ERROR ZY !!! "<<hzy[i]<<" "<<hTestzy[i]<<" "<<i<<std::endl;
-              if ( diffzz > 0.00000001 )
-                std::cout<<"ERROR ZZ !!! "<<hzz[i]<<" "<<hTestzz[i]<<" "<<i<<std::endl;
-              }                       
-                           """)
+              if ( std::abs(hxx[i]) > {lowValueThreshold} ) {{
+                      valuesChecked[0] += 1;
+                      if ( diffxx > {accuracyThreshold}*std::abs(hxx[i])  )
+                          std::cout<<"ERROR XX !!! "<<hxx[i]<<" "<<hTestxx[i]<<" "<<i<<std::endl;
+              }}
+              
+              if ( std::abs(hxy[i]) > {lowValueThreshold} ) {{
+                      valuesChecked[1] += 1;
+                      if ( diffxy > {accuracyThreshold}*std::abs(hxy[i])  )
+                          std::cout<<"ERROR XY !!! "<<hxy[i]<<" "<<hTestxy[i]<<" "<<i<<std::endl;
+              }}
+              
+              if ( std::abs(hxz[i]) > {lowValueThreshold} ) {{
+                      valuesChecked[2] += 1;
+                      if ( diffxz > {accuracyThreshold}*std::abs(hxz[i])  )
+                          std::cout<<"ERROR XZ !!! "<<hxz[i]<<" "<<hTestxz[i]<<" "<<i<<std::endl;
+              }}
+              
+              if ( std::abs(hyx[i]) > {lowValueThreshold} ) {{
+                      valuesChecked[3] += 1;
+                      if ( diffyx > {accuracyThreshold}*std::abs(hyx[i]) )
+                          std::cout<<"ERROR YX !!! "<<hyx[i]<<" "<<hTestyx[i]<<" "<<i<<std::endl;
+              }}
+              
+              if ( std::abs(hyy[i]) > {lowValueThreshold} ) {{
+                      valuesChecked[4] += 1;
+                      if ( diffyy > {accuracyThreshold}*std::abs(hyy[i])  )
+                          std::cout<<"ERROR YY !!! "<<hyy[i]<<" "<<hTestyy[i]<<" "<<i<<std::endl;
+              }}
+              
+              if ( std::abs(hyz[i]) > {lowValueThreshold} ) {{
+                      valuesChecked[5] += 1;
+                      if ( diffyz > {accuracyThreshold}*std::abs(hyz[i])  )
+                          std::cout<<"ERROR YZ !!! "<<hyz[i]<<" "<<hTestyz[i]<<" "<<i<<std::endl;
+              }}
+
+              if ( std::abs(hzx[i]) > {lowValueThreshold} ) {{
+                      valuesChecked[6] += 1;
+                      if ( diffzx > {accuracyThreshold}*std::abs(hzx[i])  )
+                          std::cout<<"ERROR ZX !!! "<<hzx[i]<<" "<<hTestzx[i]<<" "<<i<<std::endl;
+              }}
+              
+              if ( std::abs(hzy[i]) > {lowValueThreshold} ) {{
+                      valuesChecked[7] += 1;
+                      if ( diffzy > {accuracyThreshold}*std::abs(hzy[i])  )
+                          std::cout<<"ERROR ZY !!! "<<hzy[i]<<" "<<hTestzy[i]<<" "<<i<<std::endl;
+              }}
+              
+              if ( std::abs(hzz[i]) > {lowValueThreshold} ) {{
+                      valuesChecked[8] += 1;
+                      if ( diffzz > {accuracyThreshold}*std::abs(hzz[i]) )
+                          std::cout<<"ERROR ZZ !!! "<<hzz[i]<<" "<<hTestzz[i]<<" "<<i<<std::endl;
+              }}
+              
+            }}
+              
+            int totalChecked = 0;
+            for ( int i = 0; i < 9 ; i++ ) {{
+                std::cout<<i<<" Values checked: "<<valuesChecked[i]<<" of: "<<"{totalSize}"<<std::endl;
+                totalChecked += valuesChecked[i];
+            }}
+            std::cout<<"Total values checked: "<<totalChecked<<std::endl;
+                           """.format( lowValueThreshold = 1e-8, accuracyThreshold = 0.000001, totalSize = int(arraysSize)   ))
         else:
             testFile.write("""
             const clock_t begin_old_time = clock();

@@ -405,15 +405,12 @@ class GraphParser:
             if "form" in self.graph.nodes[inp]:
                 continue
             
-            atomName = inp
-            
-#            newAtom =  __AtomFactory__.createAtom(atomName, 1)
-                    
-            newSubform = __SubformFactory__.createSubform( { atomName : 1 }, 1 )
+            atomName = inp        
+            newSubformKey = __SubformFactory__.createSubform( { atomName : 1 } )
 #            newSubform.atoms[newAtom.name] = newAtom
-            
+#            print("created subform: ", newSubformKey)
             newForm = CanonicalForm()
-            newForm.subforms[ newSubform.getKey() ] = newSubform
+            newForm.subforms[ newSubformKey ] = 1
             
             self.graph.nodes[inp]["form"] = newForm
             self.graph.nodes[inp]["generatedChildren"] = 0

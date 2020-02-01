@@ -9,7 +9,7 @@ import networkx as nx
 import shlex
 import matplotlib.pyplot as plt
 
-from canonical import __SubformFactory__, CanonicalForm
+from canonical import CanonicalSubformFactory, CanonicalForm
 from canonical import addForms, multiplyForms, subtractForms, reverseFormSign
 
 from variable import Variable
@@ -46,6 +46,8 @@ class GraphParser:
         self.printingMode = False
         self.nodeKeyByCanonicalForm = True
         self.deleteFormAfterUse = False
+        
+        self.subformFactory = CanonicalSubformFactory()
         
         if source and lastLine:
             self.read(source, lastLine)
@@ -406,7 +408,7 @@ class GraphParser:
                 continue
             
             atomName = inp        
-            newSubformKey = __SubformFactory__.createSubform( { atomName : 1 } )
+            newSubformKey = self.subformFactory.createSubform( atomName )
 #            newSubform.atoms[newAtom.name] = newAtom
 #            print("created subform: ", newSubformKey)
             newForm = CanonicalForm()
@@ -941,6 +943,7 @@ class GraphParser:
         self.operators = { }
         self.fastKey2canonicalKey = {}
         self.generatedCanonicalLabels = 0
+        self.subformFactory.clean()
         
         nodes = list(nx.topological_sort(oldGraph))
         usedOldForms = 0

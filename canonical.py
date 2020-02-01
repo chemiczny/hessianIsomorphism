@@ -5,28 +5,29 @@ Created on Fri Nov 29 11:01:07 2019
 
 @author: michal
 """
-
+import pickle
 import hashlib 
 
 class CanonicalSubformFactory:
     def __init__(self):
-        self.subformKey2atomDict = {}
+        self.subformId2node = {}
+        infile = open("primes.pickle",'rb')
+        self.primes = pickle.load(infile)
+        infile.close()
+        self.currentPrime = 0
         
     def clean(self):
-        self.subformKey2atomDict = {}
+        self.subformId2node = {}
+        self.currentPrime = 0
         
-    def createSubform(self, atomDict, key = ""):
-        if not key:
-            key = atomDict2subformKey(atomDict)
-        
-        if not key in self.subformKey2atomDict:
-            self.subformKey2atomDict[key] = atomDict
-            
-#        print("Aktualny stan fabryki: ", list(self.subformKey2atomDict.keys()))
-        
+    def createSubform(self, node):
+        key = self.primes[self.currentPrime]
+        self.currentPrime += 1
+        self.subformId2node[key] = node
+                  
         return key
         
-__SubformFactory__ = CanonicalSubformFactory()
+#__SubformFactory__ = CanonicalSubformFactory()
 
 def atomKey(name, power):
     key = name
@@ -93,16 +94,16 @@ def multiplyForms(form1, form2):
             sub1Coeff = form1.subforms[s1key]
             sub2Coeff = form2.subforms[s2key]
             
-            sub1 = __SubformFactory__.subformKey2atomDict[s1key]
-            sub2 = __SubformFactory__.subformKey2atomDict[s2key]
-            
-            atomDict = subformMultAtomDict( sub1 , sub2 )
-            newKey = atomDict2subformKey(atomDict)
+#            sub1 = __SubformFactory__.subformKey2atomDict[s1key]
+#            sub2 = __SubformFactory__.subformKey2atomDict[s2key]
+#            
+#            atomDict = subformMultAtomDict( sub1 , sub2 )
+            newKey = s1key*s2key
             
             if not newKey in newForm.subforms:
                 newCoeff = sub1Coeff*sub2Coeff
                 newForm.subforms[newKey] = newCoeff
-                __SubformFactory__.createSubform( atomDict, newKey )
+#                __SubformFactory__.createSubform( atomDict, newKey )
             else:
                 newCoeff = sub1Coeff*sub2Coeff  + newForm.subforms[newKey]
                 newForm.subforms[newKey] = newCoeff
@@ -209,7 +210,7 @@ class CanonicalForm:
 #            print("klucz: ", subKey)
             coeff = self.subforms[subKey]
             
-            newKey = subKey
+            newKey = str(subKey)
             
             if coeff != 1:
                 newKey += "*"+str(coeff)

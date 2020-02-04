@@ -26,62 +26,13 @@ class CanonicalSubformFactory:
         self.subformId2node[key] = node
                   
         return key
-        
-#__SubformFactory__ = CanonicalSubformFactory()
 
-def atomKey(name, power):
-    key = name
-    if power != 1:
-        key += "^"+str(power)
-        
-    return key
-
-#class CanonicalSubform:
-##    __slots__ = [ "atoms", "coefficient", "key"]
-#    def __init__(self):
-#        self.atoms = {}
-#        self.coefficient = 1
-#        self.key = ""
+#def atomKey(name, power):
+#    key = name
+#    if power != 1:
+#        key += "^"+str(power)
 #        
-#    def getKey(self):
-#        if self.key:
-#            return self.key
-#        
-#        return self.generateKey()
-##        return self.key
-#    
-#    def updateKeys(self):
-#        self.atoms, oldAtoms = {} , self.atoms
-#        
-#        for atomKey in oldAtoms:
-#            atom = oldAtoms[atomKey]
-#            self.atoms[atom.name] = atom
-#        
-#    def generateKey(self):
-#        keyList = []
-#        for atomName in self.atoms:
-#            keyList.append( atomKey( atomName, self.atoms[atomName] ) )
-#            
-#        keyList.sort()
-#        self.key = "*".join(keyList)
-#        return self.key
-#    
-#    
-#    def multiply(self, subform):
-#        self.coefficient *= subform.coefficient
-#        
-#        for atomKey in subform.atoms:
-#            if atomKey in self.atoms:
-##                self.atoms[atomKey].power += subform.atoms[atomKey].power
-#                self.atoms[atomKey] =  self.atoms[atomKey].power +  subform.atoms[atomKey].power 
-#            else:
-#                #WTF?
-#                self.atoms[atomKey] = subform.atoms[atomKey]
-##                self.atoms[atomKey] = deepcopy(subform.atoms[atomKey])
-##                self.atoms[atomKey] = pickle.loads(pickle.dumps(subform.atoms[atomKey], -1 ))
-##                self.atoms[atomKey] = copy(subform.atoms[atomKey])
-#                
-#        self.key = ""
+#    return key
         
 
 def multiplyForms(form1, form2):
@@ -153,15 +104,6 @@ def reverseFormSign(form):
         newForm.subforms[subFormKey] = -1*form.subforms[subFormKey]
         
     return newForm
-        
-#def subform2AtomDict(subform):
-#    atomDict = {}
-#    
-#    for atomKey in subform.atoms:
-#        atom = subform.atoms[atomKey]
-#        atomDict[atom.name] = atom.power
-#        
-#    return atomDict
     
 def subformMultAtomDict( atomDict1, atomDict2):
     atomDict = {}
@@ -191,12 +133,6 @@ def atomDict2subformKey(atomDict):
     return "*".join(sorted(atomKeys))
     
 
-#    def divide(self):
-#        pass
-#    
-#    def inverse(self):
-#        pass
-
 class CanonicalForm:
 #    __slots__ = "subforms"
     def __init__(self):
@@ -218,15 +154,7 @@ class CanonicalForm:
             keyList.append( newKey )
             
 #        print(keyList)
-        return int(hashlib.md5(("+".join(sorted( keyList ))).encode()).hexdigest(), 16)
-#        return "+".join(sorted( keyList ))
+#        return int(hashlib.md5(("+".join(sorted( keyList ))).encode()).hexdigest(), 16)
+        return "+".join(sorted( keyList ))
     
-#    def updateKeys(self):
-#        self.subforms, oldSubforms = {}, self.subforms
-#        
-#        for key in oldSubforms:
-#            subform = oldSubforms[key]
-#            subform.updateKeys()
-#            key = subform.generateKey()
-#            self.subforms[key] = subform
     

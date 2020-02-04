@@ -51,7 +51,7 @@ class CppParser:
         newFunction.simplifyBrackets()
         newFunction.rebuildGraph()
         
-#        newFunction.dumplOutputCanonicalForm("canonicalOutputs.dat")
+        newFunction.dumplOutputCanonicalForm("canonicalOutputs.dat")
 #        newFunction.simplifyBrackets()
 #        newFunction.rebuildGraph()
 #        print("znowu szukam klastrów")
@@ -66,15 +66,11 @@ class CppParser:
 #        newFunction.rebuildGraph()
 #        print("Done ",len(newFunction.graph.nodes) )
         
-#        newFunction.printingMode = True
-        
-    def writeTest(self, testFilename , testCase = "prediction", reuseVariables = False, printingMode = False ):
+    def writeTest(self, testFilename , testCase = "prediction" ):
         if not self.functions:
             return
         
         newFunction = self.functions[0]
-        newFunction.printingMode = printingMode
-        newFunction.nodeKeyByCanonicalForm = True
         
         testFile = open(testFilename ,'w')
         
@@ -98,10 +94,7 @@ class CppParser:
         testFile.write(line)
         cppF.close()
         
-        if reuseVariables:
-            newFunction.writeFunctionFromGraphVariableReuse("dupa", testFile)
-        else:
-            newFunction.writeFunctionFromGraph( "dupa" , testFile )
+        newFunction.writeFunctionFromGraph( "dupa" , testFile )
 #        newFunction.histogramOfLevels("+")
 #        newFunction.histogramOfLevels("*")
 #        newFunction.histogramOfLevels("/")
@@ -306,7 +299,7 @@ if __name__ == "__main__":
     cppParser.parse()
     cppParser.saveGraphFunction()
 #    cppParser.loadGraphFunction()
-    cppParser.writeTest("dupa.cpp", testCase="prediction", reuseVariables=True, printingMode= False)
+    cppParser.writeTest("dupa.cpp", testCase="prediction")
     
     
     

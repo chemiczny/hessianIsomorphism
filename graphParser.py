@@ -15,8 +15,16 @@ from canonical import addForms, multiplyForms, subtractForms, reverseFormSign
 from variable import Variable
 from parsingUtilities import isfloat
 
-#import pickle
-
+"""
+name - nazwa funkcji zczytana z pliku
+arguments - lista obiektów Variable
+constants - dopuszczalne stale (poza numerycznymi)
+inputs - słownik [nazwa zmiennej] -> obiekt variable
+outputs - słownik [nazwa zmiennej] -> obiekt variable
+maxOutputSize - najwiekszy wymiar tablicy wyjsciowej (wykorzystywany podczas generacji testow)
+key2uniqueOperatorNodes - [klucz kanoniczny] -> odpowiadajacy wierzcholek, 
+    istotne podczas sprawdzania czy nowy wierzcholek juz w rzeczywistosci nie istnieje
+"""
 class GraphParser:
     def __init__(self, source = None, lastLine = None):
         self.name = None
@@ -36,16 +44,12 @@ class GraphParser:
         self.outputs2nodes = {}
         
         self.key2uniqueOperatorNodes = {}
-        self.fastKey2canonicalKey = {}
         
         self.operators = { }
         
         self.maxOutputSize = -1
-        self.generatedCanonicalLabels = 0
         
-        self.printingMode = False
-        self.nodeKeyByCanonicalForm = True
-        self.deleteFormAfterUse = False
+#        self.deleteFormAfterUse = False
         
         self.subformFactory = CanonicalSubformFactory()
         
@@ -196,10 +200,6 @@ class GraphParser:
                 self.variables2nodes[newVar] = bottomNode
                 
                 self.outputs2nodes[newVar] = bottomNode
-#                if "kind" in self.graph.nodes[bottomNode]:
-#                    if self.graph.nodes[bottomNode]["kind"] == "output":
-#                        print("o kurwa, ja pierdole")
-                    
                     
                 self.graph.nodes[bottomNode]["kind"] = "output"
             elif "[" in line:
@@ -213,11 +213,7 @@ class GraphParser:
             
             if expressionParsed % 500 == 0:
                 self.log("Parsed "+str(expressionParsed)+ " expresions")
-            
-#        self.plotGraph()
-#        print("zczytywanie skonczone")
-#        self.writeFunctionFromGraph("dupa", "dupa")
-#        print("sortowanie skonczone")
+        
             
         print("stan operatorow: ")
         print(self.operators)
@@ -288,7 +284,6 @@ class GraphParser:
                 tokenStack[tokenStackIndex].append( highLayer )
                 tokenIndex += 1
                 
-#                print("kurwa ",tokenStack[tokenStackIndex] )
                 continue
             
             elif token == ",":
@@ -321,7 +316,6 @@ class GraphParser:
         if statusStack[0] == "high":
             fixedExprList.append(")")
         finalExpr = "".join(fixedExprList)
-#        print("Po dodaniu nawiasow")
         self.lastBrackets = finalExpr
         self.lastTokenStack = tokenStack
         exprSplit = list(shlex.shlex(finalExpr))
@@ -330,8 +324,6 @@ class GraphParser:
         
         tokenIndex = 0
         tokenIndexLimit = len(exprSplit)
-        
-#        print(fixedExprList)
         
         while tokenIndex < tokenIndexLimit:
             token = exprSplit[tokenIndex]
@@ -367,36 +359,32 @@ class GraphParser:
         newCanonicalForm = self.graph.nodes[inputs[0]]["form"]
         if operator == "+":
             for inp in inputs[1:]:
-#                newCanonicalForm.add( self.graph.nodes[inp]["form"] )
                 newCanonicalForm = addForms( newCanonicalForm, self.graph.nodes[inp]["form"] )
         elif operator == "*":
             for inp in inputs[1:]:
-#                newCanonicalForm.multiply( self.graph.nodes[inp]["form"] )
                 newCanonicalForm = multiplyForms(newCanonicalForm, self.graph.nodes[inp]["form"] )
         elif operator == "-":
             if len(inputs) == 1:
-#                newCanonicalForm.reverseSign()
                 newCanonicalForm = reverseFormSign(newCanonicalForm)
             elif len(inputs) == 2:
-#                newCanonicalForm.subtract(self.graph.nodes[inputs[1]]["form"])
                 newCanonicalForm = subtractForms( newCanonicalForm, self.graph.nodes[inputs[1]]["form"])
             else:
                 raise Exception("Substract operator with wrong number of arguments")
         else:
             raise Exception("Not supported operator for canonical labeling!")
             
-        if self.deleteFormAfterUse:
-            for inp in inputSet:
-                childrenLen = len(list( self.graph.successors(inp) ))
-                if childrenLen == 0:
-                    continue
-                
-                childrenGenerated = self.graph.nodes[inp]["generatedChildren"]
-                
-                if childrenLen == childrenGenerated:
-                    del self.graph.nodes[inp]["form"] 
-                elif  childrenGenerated > childrenLen:
-                    raise Exception("Generated more children than possible "+str(childrenGenerated) + " "+str(childrenLen))
+#        if self.deleteFormAfterUse:
+#            for inp in inputSet:
+#                childrenLen = len(list( self.graph.successors(inp) ))
+#                if childrenLen == 0:
+#                    continue
+#                
+#                childrenGenerated = self.graph.nodes[inp]["generatedChildren"]
+#                
+#                if childrenLen == childrenGenerated:
+#                    del self.graph.nodes[inp]["form"] 
+#                elif  childrenGenerated > childrenLen:
+#                    raise Exception("Generated more children than possible "+str(childrenGenerated) + " "+str(childrenLen))
         
         return newCanonicalForm
     
@@ -409,21 +397,12 @@ class GraphParser:
             
             atomName = inp        
             newSubformKey = self.subformFactory.createSubform( atomName )
-#            newSubform.atoms[newAtom.name] = newAtom
-#            print("created subform: ", newSubformKey)
             newForm = CanonicalForm()
             newForm.subforms[ newSubformKey ] = 1
             
             self.graph.nodes[inp]["form"] = newForm
             self.graph.nodes[inp]["generatedChildren"] = 0
             self.graph.nodes[inp]["canonicalKey"] = newForm.generateKey()
-            
-#        keyList = [ "("+ self.graph.nodes[inp]["canonicalKey"] + ")" for inp in inputs ]
-#        
-#        if symmetric:
-#            keyList.sort()
-#            
-#        return "_".join(keyList)+"_"+operatorName
         
     def insertNewOperator(self, operatorName, inputs, fix , forceNewNode = False, oldCanonicalForm = None):
 #        print("Dodaje wierzcholek: ", operatorName, "wejscia", inputs)
@@ -431,17 +410,14 @@ class GraphParser:
             self.operators[operatorName] = -1           
             
         canonicalForm = None
-        if self.nodeKeyByCanonicalForm and operatorName in [ "+", "*", "-" ] :
+        if operatorName in [ "+", "*", "-" ] :
             self.generateInpForms(operatorName, inputs)
             if oldCanonicalForm:
                 canonicalForm = oldCanonicalForm
                 key = canonicalForm.generateKey()
-#            elif not fastKey in self.fastKey2canonicalKey:
             else:
                 canonicalForm = self.generateCanonicalForm(operatorName, inputs)
                 key = canonicalForm.generateKey()
-#            else:
-#                key = self.fastKey2canonicalKey[fastKey]
         else:
             key = "_".join(sorted(inputs)) + "_"+operatorName
             
@@ -469,8 +445,6 @@ class GraphParser:
             self.graph.nodes[nodeName]["form"] = canonicalForm
             self.graph.nodes[nodeName]["canonicalKey"] = key
             self.graph.nodes[nodeName]["generatedChildren"] = 0
-            self.generatedCanonicalLabels += 1
-#            self.fastKey2canonicalKey[fastKey] = key
         
         for inp in inp2fold:
             if not inp in self.graph.nodes:
@@ -485,17 +459,14 @@ class GraphParser:
             self.operators[operatorName] = -1
             
         canonicalForm = None
-        if self.nodeKeyByCanonicalForm and operatorName in [ "-" ] :
+        if operatorName in [ "-" ] :
             self.generateInpForms(operatorName, inputs)
             if oldCanonicalForm:
                 canonicalForm = oldCanonicalForm
                 key = canonicalForm.generateKey()
-#            elif not fastKey in self.fastKey2canonicalKey:
             else:
                 canonicalForm = self.generateCanonicalForm(operatorName, inputs)
                 key = canonicalForm.generateKey()
-#            else:
-#                key = self.fastKey2canonicalKey[fastKey]
         else:
             key = "_".join(sorted(inputs)) + "_"+operatorName
             
@@ -518,8 +489,6 @@ class GraphParser:
             self.graph.nodes[nodeName]["form"] = canonicalForm
             self.graph.nodes[nodeName]["canonicalKey"] = key
             self.graph.nodes[nodeName]["generatedChildren"] = 0
-            self.generatedCanonicalLabels += 1
-#            self.fastKey2canonicalKey[fastKey] = key
         
         onlyUnique = 0 == len(set(inputs))-len(inputs)
         
@@ -663,7 +632,6 @@ class GraphParser:
         return currentNode
             
     def getNextNode(self, exprList):
-#        print("szukam kolejnego podwyrazenia: ", "".join(exprList))
         tokenIndex = 0
         tokenLimit = len(exprList)
         
@@ -685,24 +653,15 @@ class GraphParser:
                     print("Brackets error!")
                     raise Exception("Brackets error!")
                 
-#            elif token in self.inputNames:
-#                tokenRecognized = True
-#            elif token in self.constants:
-#                tokenRecognized = True
-#            elif token in self.variables2nodes:
-#                tokenRecognized = True
-#            elif isfloat(token):
-#                tokenRecognized = True
             elif token in [ "std::exp", "std::sqrt" , "std::pow", "-" ]:
                 tokenIndex += 1
                 continue
-#            else:
-#                raise Exception("Unknown token! "+token)
+
             elif token in self.inputs:
                 inputType = self.inputs[token].type
-#                print("input!!! ", inputType)
+
                 if "*" in inputType:
-#                    print("ogarniam")
+
                     for i in range(3):
                         tokenIndex += 1
                         token = exprList[tokenIndex]
@@ -713,7 +672,6 @@ class GraphParser:
             
             tokenIndex += 1
             
-#        print("Znalezione podwyrazenie: ", "".join(internalExpression))
         return internalExpression
     
     def getNextOperatorAndNode(self, exprList):
@@ -726,73 +684,6 @@ class GraphParser:
             
         internalExpression.append(nextToken)
         return internalExpression +  self.getNextNode( exprList[1:] )
-    
-    def writeFunctionFromGraph(self, functionName, file):
-        nodes = nx.topological_sort(self.graph)
-        
-        file.write("void "+functionName+"(\n")
-        
-        for arg in self.arguments[:-1]:
-            file.write( arg.type+" "+arg.name+" , \n" )
-            
-        lastArgument = self.arguments[-1]
-        file.write(lastArgument.type +" "+ lastArgument.name+" ) \n")
-        file.write("{\n")
-        
-        maxPrint = 100
-        printed = 0
-        constantIndex = 0
-        for node in nodes:
-            if not "kind" in self.graph.nodes[node]:
-                print("nie ma rodzaju!", node)
-                print(self.graph.nodes[node])
-            
-            if self.graph.nodes[node]["kind"] == "input":
-                print("wejsciowy", node, self.graph.nodes[node])
-                continue
-            
-            else:
-                inputList = self.prepareInputList(self.graph, node)
-                        
-                fixType = self.graph.nodes[node]["fix"]
-                
-                if fixType == "prefix" and len(inputList) > 1:
-                    raise Exception("One argument prefix operator with more arguments!")
-                    
-                nodeVariable = self.graph.nodes[node]["variable"]
-                if not nodeVariable or "dupa" in str(nodeVariable):
-                    self.graph.nodes[node]["variable"] = "dupa"+str(constantIndex)
-                    constantIndex += 1
-                    
-                if self.graph.nodes[node]["kind"] == "middle":
-                    file.write("    const double "+self.graph.nodes[node]["variable"]+" = ")
-                elif self.graph.nodes[node]["kind"] == "output":
-                    file.write("    "+self.graph.nodes[node]["variable"]+" += ")
-                else:
-                    raise Exception("Unknown kind of node!")
-                
-                operator = self.graph.nodes[node]["operator"]
-                if fixType == "prefix":
-                    file.write(operator+inputList[0])
-                elif fixType == "prefixBrackets":
-                    inputStr = " , ".join(inputList)
-                    file.write(operator + "("+inputStr+")")
-                elif fixType == "infix":
-                    file.write(  operator.join( inputList ) )
-                elif fixType == "postfix":
-                    file.write(inputList[0]+operator)
-                else:
-                    raise Exception("Uknown operator type")
-                    
-                file.write(";\n")
-                
-                if self.printingMode and printed < maxPrint:
-                    file.write('std::cout<<"'+self.graph.nodes[node]["variable"]+'"<<" "<<'+self.graph.nodes[node]["variable"]+"<<std::endl;\n")
-                    printed+=1
-                
-                
-        
-        file.write("}\n")
             
     def rebuildVariableNames(self, sortedNodes):
         
@@ -808,7 +699,7 @@ class GraphParser:
             
             if not variables2reuse or predecessorsNo == 1:
                 self.graph.nodes[node]["newDefinition"] = True
-                if not nodeVariable or "dupa" in str(nodeVariable):
+                if not nodeVariable or "dupa" in str(nodeVariable): #zeby nie powtorzyc nazwy zmiennych np podczas rebuildu grafu
                     self.graph.nodes[node]["variable"] = "dupa"+str(constantIndex)
                     constantIndex += 1
                     
@@ -818,32 +709,32 @@ class GraphParser:
                 
             self.graph.nodes[node]["generatedChildren"] = 0
             
-            parents = list(self.graph.predecessors( node))
-            continue
-        
-            for parent in parents:
-                if self.graph.nodes[parent]["kind"] != "middle":
-                    continue
-                
-                parentChildren = list( self.graph.successors(parent ) )
-                parentChildrenNo = len( parentChildren )
-                firstFold = 0
-                if parentChildren:
-                    firstFold = self.graph[parent][parentChildren[0]]["fold"]
-                
-                if parentChildrenNo == 1 and firstFold == 1:
-                    continue
-                
-                self.graph.nodes[parent]["generatedChildren"] += 1
-               
-                
-                if parentChildrenNo == self.graph.nodes[parent]["generatedChildren"]:
-                    variables2reuse.append( self.graph.nodes[parent]["variable"] )
+#            parents = list(self.graph.predecessors( node))
+#            continue
+        #kurwa dlaczego?
+#            for parent in parents:
+#                if self.graph.nodes[parent]["kind"] != "middle":
+#                    continue
+#                
+#                parentChildren = list( self.graph.successors(parent ) )
+#                parentChildrenNo = len( parentChildren )
+#                firstFold = 0
+#                if parentChildren:
+#                    firstFold = self.graph[parent][parentChildren[0]]["fold"]
+#                
+#                if parentChildrenNo == 1 and firstFold == 1:
+#                    continue
+#                
+#                self.graph.nodes[parent]["generatedChildren"] += 1
+#               
+#                
+#                if parentChildrenNo == self.graph.nodes[parent]["generatedChildren"]:
+#                    variables2reuse.append( self.graph.nodes[parent]["variable"] )
             
             
             
             
-    def writeFunctionFromGraphVariableReuse(self, functionName, file):
+    def writeFunctionFromGraph(self, functionName, file):
         nodes = list(nx.topological_sort(self.graph))
         
         self.rebuildVariableNames(nodes)
@@ -857,8 +748,6 @@ class GraphParser:
         file.write(lastArgument.type +" "+ lastArgument.name+" ) \n")
         file.write("{\n")
         
-        maxPrint = 100
-        printed = 0
         constantResIndex = 0
         for node in nodes:
             if not "kind" in self.graph.nodes[node]:
@@ -874,7 +763,7 @@ class GraphParser:
                         
                 succesors = list(self.graph.successors( node))
                 succesorsNo = len(succesors)
-                firstFold = 0
+                firstFold = 0 # useful only if successorsNo == 1
                 if succesors:
                     firstFold = self.graph[node][succesors[0]]["fold"]
                 
@@ -905,8 +794,8 @@ class GraphParser:
                             file.write("    "+self.graph.nodes[node]["variable"]+" = " + command + ";\n")
                     elif self.graph.nodes[node]["kind"] == "output":
                         eqOp = self.graph.nodes[node]["eq"]
-                        if len( self.graph.nodes[node]["variables"] ) == 1 and not "variable" in self.graph.nodes[node] :
-                            file.write("    "+self.graph.nodes[node]["variables"][0]+" "+eqOp+" ")
+                        if len( self.graph.nodes[node]["variables"] ) == 1 and succesorsNo == 0 : 
+                            file.write("    "+self.graph.nodes[node]["variables"][0]+" "+eqOp+" "+command + ";\n")
                         else:
                             if not  self.graph.nodes[node]["variable"]:
                                 newConstant = "res"+str(constantResIndex)
@@ -921,14 +810,8 @@ class GraphParser:
                     else:
                         raise Exception("Unknown kind of node!")  
                 
-#                    file.write(command)
-#                    file.write(";\n")
                 else:
                     self.graph.nodes[node]["variable"] = " ( " + command + " ) "
-                
-                if self.printingMode and printed < maxPrint and "C" in self.graph.nodes[node]["variable"]:
-                    file.write('std::cout<<"'+self.graph.nodes[node]["variable"]+'"<<" "<<'+self.graph.nodes[node]["variable"]+"<<std::endl;\n")
-                    printed+=1
                 
                 
         
@@ -941,8 +824,6 @@ class GraphParser:
         self.variables2nodes = {}
         self.key2uniqueOperatorNodes = {}
         self.operators = { }
-        self.fastKey2canonicalKey = {}
-        self.generatedCanonicalLabels = 0
         self.subformFactory.clean()
         
         nodes = list(nx.topological_sort(oldGraph))

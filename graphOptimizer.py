@@ -16,6 +16,10 @@ class GraphOptimizer(GraphParser):
     def __init__(self , source = None, lastLine = None):
         GraphParser.__init__(self, source, lastLine)
     
+    def HornerScheme(self):
+        inputNodes = set(self.inputs.keys())
+        outputNodes = set(self.outputs)
+    
     def findClusters(self):
         self.log("Searching for cluster start...")
         clusterFound = True
@@ -426,9 +430,15 @@ class GraphOptimizer(GraphParser):
             node = self.key2uniqueOperatorNodes[key]
             kind = self.graph.nodes[node]["kind"]
             
-            if kind == "output":
+            if kind == "output" and self.graph.nodes[node]["operator"] != "/":
                 f2w.write(key)
                 f2w.write("\n")
+            elif kind != "input":
+                for succ in self.graph.successors(node):
+                    if self.graph.nodes[succ]["operator"] == "/":
+                        f2w.write(key)
+                        f2w.write("\n")
+                        break
         
         f2w.close()
         

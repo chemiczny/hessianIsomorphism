@@ -51,7 +51,8 @@ class CppParser:
         newFunction.simplifyBrackets()
         newFunction.rebuildGraph()
         
-        newFunction.dumplOutputCanonicalForm("canonicalOutputs.dat")
+#        newFunction.dumplOutputCanonicalForm("canonicalOutputs.dat")
+#        newFunction.greedyScheme()
 #        newFunction.simplifyBrackets()
 #        newFunction.rebuildGraph()
 #        print("znowu szukam klastrów")

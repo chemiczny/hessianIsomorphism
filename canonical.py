@@ -154,7 +154,7 @@ class CanonicalForm:
             keyList.append( newKey )
             
 #        print(keyList)
-#        return int(hashlib.md5(("+".join(sorted( keyList ))).encode()).hexdigest(), 16)
-        return "+".join(sorted( keyList ))
+        return int(hashlib.md5(("+".join(sorted( keyList ))).encode()).hexdigest(), 16)
+#        return "+".join(sorted( keyList ))
     
     

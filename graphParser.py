@@ -44,6 +44,7 @@ class GraphParser:
         self.outputs2nodes = {}
         
         self.key2uniqueOperatorNodes = {}
+        self.notCanonicalKey2Node = {}
         
         self.operators = { }
         
@@ -395,14 +396,49 @@ class GraphParser:
             if "form" in self.graph.nodes[inp]:
                 continue
             
-            atomName = inp        
-            newSubformKey = self.subformFactory.createSubform( atomName )
-            newForm = CanonicalForm()
-            newForm.subforms[ newSubformKey ] = 1
+            self.createPrimeForm(inp)        
             
-            self.graph.nodes[inp]["form"] = newForm
-            self.graph.nodes[inp]["generatedChildren"] = 0
-            self.graph.nodes[inp]["canonicalKey"] = newForm.generateKey()
+            
+    def createPrimeForm(self, node):
+        newSubformKey = self.subformFactory.createSubform( node )
+        newForm = CanonicalForm()
+        newForm.subforms[ newSubformKey ] = 1
+        
+        self.graph.nodes[node]["form"] = newForm
+        self.graph.nodes[node]["generatedChildren"] = 0
+        newKey = newForm.generateKey()
+        self.graph.nodes[node]["canonicalKey"] = newKey
+        self.key2uniqueOperatorNodes[newKey] = node
+            
+    def insertNewOperatorBottomUp(self, operatorName, output, canonicalForm, inputNode = None):
+        if not operatorName in [ "+", "*", "-", "unk" ] :
+            raise Exception("Unsupported operator in bottom up operator insert!")
+            
+        key = canonicalForm.generateKey()
+        
+        if key in self.key2uniqueOperatorNodes:
+            print("istnieje juz w grafie")
+            return self.key2uniqueOperatorNodes[key], True
+        
+        
+        if not operatorName in self.operators:
+            self.operators[operatorName] = -1
+            
+        self.operators[operatorName] += 1
+        
+        nodeName = operatorName + str( self.operators[operatorName] )
+        self.key2uniqueOperatorNodes[key] = nodeName
+        self.graph.add_node(nodeName, variable = None, kind = "middle", operator = operatorName, fix = "infix", symmetric = True)
+        
+        self.graph.nodes[nodeName]["form"] = canonicalForm
+        self.graph.nodes[nodeName]["canonicalKey"] = key
+        self.graph.nodes[nodeName]["generatedChildren"] = 0
+        #zwiekszanie krotnosci w przypadku istniejacych krawedzi?
+        self.graph.add_edge( nodeName, output, fold = 1 )
+        if inputNode:
+            self.graph.add_edge( inputNode, nodeName, fold = 1 )
+        
+        return nodeName, False
         
     def insertNewOperator(self, operatorName, inputs, fix , forceNewNode = False, oldCanonicalForm = None):
 #        print("Dodaje wierzcholek: ", operatorName, "wejscia", inputs)
@@ -418,11 +454,14 @@ class GraphParser:
             else:
                 canonicalForm = self.generateCanonicalForm(operatorName, inputs)
                 key = canonicalForm.generateKey()
+                
+            if key in self.key2uniqueOperatorNodes and not forceNewNode:
+                return self.key2uniqueOperatorNodes[key]
         else:
-            key = "_".join(sorted(inputs)) + "_"+operatorName
+            simpleKey = "_".join(sorted(inputs)) + "_"+operatorName
             
-        if key in self.key2uniqueOperatorNodes and not forceNewNode:
-            return self.key2uniqueOperatorNodes[key]
+            if simpleKey in self.notCanonicalKey2Node and not forceNewNode:
+                return self.notCanonicalKey2Node[simpleKey]
             
         inp2fold = {}
         level = 0
@@ -438,13 +477,16 @@ class GraphParser:
         self.operators[operatorName] += 1
         
         nodeName = operatorName + str( self.operators[operatorName] )
-        self.key2uniqueOperatorNodes[key] = nodeName
         self.graph.add_node(nodeName, variable = None, kind = "middle", operator = operatorName, fix = fix, symmetric = True, level = level)
         
         if canonicalForm:
             self.graph.nodes[nodeName]["form"] = canonicalForm
             self.graph.nodes[nodeName]["canonicalKey"] = key
             self.graph.nodes[nodeName]["generatedChildren"] = 0
+            self.key2uniqueOperatorNodes[key] = nodeName
+        else:
+            self.createPrimeForm(nodeName)
+            self.notCanonicalKey2Node[simpleKey] = nodeName
         
         for inp in inp2fold:
             if not inp in self.graph.nodes:
@@ -467,12 +509,15 @@ class GraphParser:
             else:
                 canonicalForm = self.generateCanonicalForm(operatorName, inputs)
                 key = canonicalForm.generateKey()
-        else:
-            key = "_".join(sorted(inputs)) + "_"+operatorName
+            if key in self.key2uniqueOperatorNodes and not forceNewNode:
+                return self.key2uniqueOperatorNodes[key]
             
-        if key in self.key2uniqueOperatorNodes and not forceNewNode:
-            return self.key2uniqueOperatorNodes[key]
-        
+        else:
+            simpleKey = "_".join(sorted(inputs)) + "_"+operatorName
+            
+            if simpleKey in self.notCanonicalKey2Node and not forceNewNode:
+                return self.notCanonicalKey2Node[simpleKey]
+            
         level = 0
         
         for inp in inputs:
@@ -482,13 +527,17 @@ class GraphParser:
         self.operators[operatorName] += 1
         
         nodeName = operatorName + str( self.operators[operatorName] )
-        self.key2uniqueOperatorNodes[key] = nodeName
+        
         self.graph.add_node(nodeName, variable = None, kind = "middle", operator = operatorName, fix = fix, symmetric = False, level = level)
         
         if canonicalForm:
             self.graph.nodes[nodeName]["form"] = canonicalForm
             self.graph.nodes[nodeName]["canonicalKey"] = key
             self.graph.nodes[nodeName]["generatedChildren"] = 0
+            self.key2uniqueOperatorNodes[key] = nodeName
+        else:
+            self.createPrimeForm(nodeName)
+            self.notCanonicalKey2Node[simpleKey] = nodeName
         
         onlyUnique = 0 == len(set(inputs))-len(inputs)
         
@@ -589,7 +638,7 @@ class GraphParser:
 #                print(token)
                 operator = ""
                 if "*" in inputType:
-                    for i in range(3):
+                    for i in range(3): 
                         tokenIndex += 1
                         operator += exprSplit[tokenIndex]
                         
@@ -823,6 +872,7 @@ class GraphParser:
         
         self.variables2nodes = {}
         self.key2uniqueOperatorNodes = {}
+        self.notCanonicalKey2Node = {}
         self.operators = { }
         self.subformFactory.clean()
         

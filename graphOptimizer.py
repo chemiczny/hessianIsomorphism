@@ -10,15 +10,172 @@ from time import time
 import networkx as nx
 import matplotlib.pyplot as plt
 from copy import deepcopy
-
+#from math import ceil, sqrt
+from collections import defaultdict
+from canonical import CanonicalForm
 
 class GraphOptimizer(GraphParser):
     def __init__(self , source = None, lastLine = None):
         GraphParser.__init__(self, source, lastLine)
     
-    def HornerScheme(self):
-        inputNodes = set(self.inputs.keys())
-        outputNodes = set(self.outputs)
+    def primeFactorization(self, number):
+#        primeBoundary = ceil( sqrt(number) )
+        factors = defaultdict(int)
+        
+        temp = number
+        primeIndex = 0
+#        print("faktoryzacja: ",temp)
+        while temp != 1:
+            prime = self.subformFactory.primes[primeIndex]
+            
+            while temp % prime == 0:
+                factors[prime] += 1
+                temp = temp//prime
+#                print(prime, temp)
+                
+            primeIndex += 1
+        
+        return factors
+    
+    def greedyScheme(self):
+        nodes2optimize = set([])
+        nodes2remove = set([])
+        operatorsOptim = set( [ "+", "-", "*" ] )
+        toStay = 0
+        
+        for node in self.graph.nodes:
+            
+            if self.graph.nodes[node]["kind"] == "input":
+                toStay+=1
+                continue
+            
+            if not self.graph.nodes[node]["operator"] in operatorsOptim:
+                toStay+=1
+                continue
+            
+            if self.graph.nodes[node]["kind"] == "output" :
+                nodes2optimize.add(node)
+                continue
+                
+            successors = list(self.graph.successors(node))
+            
+            if all( [  self.graph.nodes[s]["operator"] in operatorsOptim for s in successors    ] ):
+                nodes2remove.add(node)
+            else:
+                nodes2optimize.add(node)
+                
+                
+        print("to remove: ", len(nodes2remove))
+        print("to expand: ", len(nodes2optimize))
+        print("to stay: ", toStay)
+        
+        for node in nodes2remove:
+            canonicalKey = self.graph.nodes[node]["canonicalKey"]
+            del self.key2uniqueOperatorNodes[canonicalKey]
+        
+#        node = self.subformFactory.subformId2node[67]
+#        print("klucz od: ", node)
+#        print(self.graph.nodes[node]["canonicalKey"])
+#        
+#        for key in self.key2uniqueOperatorNodes:
+#            if len(key) < 3:
+#                print(key, self.key2uniqueOperatorNodes[key] )
+            
+        self.graph.remove_nodes_from(nodes2remove)
+        for n in nodes2optimize:
+            self.greedyExpand(n)
+        
+    def greedyExpand(self, node, atomDistribution = None):
+        form = self.graph.nodes[node]["form"]
+        subformKey2atomDistribution = {}
+        atomsOccurence = defaultdict(int)
+        
+        if atomDistribution:
+            subformKey2atomDistribution = atomDistribution
+        else:
+            for subKey in form.subforms:
+                subformKey2atomDistribution[subKey] = self.primeFactorization(subKey)
+        
+        for subKey in form.subforms:
+            for atom in subformKey2atomDistribution[subKey]:
+                atomsOccurence[atom] += 1
+                
+        if len(atomsOccurence) == 1 and len(form.subforms) == 1:
+            subformKey = list( form.subforms.keys() )[0]
+            primeKey = list( atomsOccurence.keys() )[0]
+            atomPower = subformKey2atomDistribution[subformKey][primeKey]
+            
+            if atomPower == 1:
+                coeff = form.subforms[subformKey]
+                
+                nodeName = str(coeff)
+                if not nodeName in self.graph.nodes:
+                    self.graph.add_node(nodeName, variable = nodeName, kind = "input", level = 0)
+                    
+                self.graph.nodes[node]["operator"] = "*"
+                self.graph.add_edge(nodeName, node, fold = 1 )
+                self.graph.add_edge(str(primeKey), node, fold = 1 )
+                return
+            
+        print("######################")
+        print(len(form.subforms))
+        print(form.subforms)
+        print(atomsOccurence)
+        mostCommonAtom =  sorted(atomsOccurence.items(), key=lambda item: item[1])[-1][0]
+        print(mostCommonAtom)
+        
+        devidedSubforms = {}
+        notDevidedSubforms = {}
+        devidedAtomDistribution = {}
+        notDevidedAtomDistribution = {}
+        
+        subDevidedSubforms = {}
+        
+        for subKey in subformKey2atomDistribution:
+            atomDistribution = subformKey2atomDistribution[subKey]
+            if mostCommonAtom in atomDistribution:
+                atomDistribution[mostCommonAtom] -= 1
+                newKey = subKey//mostCommonAtom
+                if atomDistribution[mostCommonAtom] == 0:
+                    del atomDistribution[mostCommonAtom]
+                    
+                devidedAtomDistribution[newKey] = atomDistribution
+                devidedSubforms[newKey] = form.subforms[subKey]
+                subDevidedSubforms[subKey] = form.subforms[subKey]
+            else:
+                notDevidedAtomDistribution[subKey] = atomDistribution
+                notDevidedSubforms[subKey] = form.subforms[subKey]
+                
+        self.graph.nodes[node]["symmetric"] = False
+        self.graph.nodes[node]["fix"] = "infix"
+        
+        devidedForm = CanonicalForm()
+        devidedForm.subforms = devidedSubforms
+        commonAtomNode = self.subformFactory.subformId2node[mostCommonAtom]
+        
+        if not notDevidedSubforms:
+            self.graph.nodes[node]["operator"] = "*"
+            
+            self.graph.add_edge(commonAtomNode, node, fold = 1)
+            newNode, presentInGraph = self.insertNewOperatorBottomUp("unk", node, devidedForm)
+            if not presentInGraph:
+                self.greedyExpand(newNode, devidedAtomDistribution)
+        else:
+            self.graph.nodes[node]["operator"] = "+"
+            notDevidedForm = CanonicalForm()
+            notDevidedForm.subforms = notDevidedSubforms
+            notDevidedNode, presentInGraph = self.insertNewOperatorBottomUp("unk", node, notDevidedForm)
+            if not presentInGraph:
+                self.greedyExpand(notDevidedNode, notDevidedAtomDistribution)
+            
+            subdevidedForm = CanonicalForm()
+            subdevidedForm.subforms = subDevidedSubforms
+            subdevidedNode, presentInGraph = self.insertNewOperatorBottomUp("*", node, subdevidedForm, commonAtomNode  )
+            if not presentInGraph:
+                lastNode, presentInGraph = self.insertNewOperatorBottomUp("unk", subdevidedNode, devidedForm )
+                if not presentInGraph:
+                    self.greedyExpand(lastNode, devidedAtomDistribution)
+            
     
     def findClusters(self):
         self.log("Searching for cluster start...")

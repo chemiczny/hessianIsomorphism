@@ -37,10 +37,10 @@ class CppParser:
         
         cppF.close()
         
-        print("szukam klastrow ")
-        newFunction.findClusters()
+#        print("szukam klastrow ")
+#        newFunction.findClusters()
 #        print("przebudowuje graf ", len(newFunction.graph.nodes))
-        newFunction.rebuildGraph()
+#        newFunction.rebuildGraph()
 #        print("Done ",len(newFunction.graph.nodes) )
 #        newFunction.analysePools()
         
@@ -66,6 +66,31 @@ class CppParser:
 #        print("przebudowuje graf ", len(newFunction.graph.nodes))
 #        newFunction.rebuildGraph()
 #        print("Done ",len(newFunction.graph.nodes) )
+        
+    def rewriteCppFile(self, destiny):
+        if not self.functions:
+            return
+        
+        destinyFile = open(destiny, 'w')
+        
+        cppF = open(self.cppFile, 'r')
+        
+        line = cppF.readline()
+        while not "void" in line:
+            if '//#pragma GCC optimize ("O0")' in line:
+                destinyFile.write('#pragma GCC optimize ("O0")\n')
+            else:
+                destinyFile.write(line)
+                
+            line = cppF.readline()
+            
+        cppF.close()
+        
+        function = self.functions[0]
+        
+        function.writeFunctionFromGraph( function.name , destinyFile)
+        
+        destinyFile.close()
         
     def writeTest(self, testFilename , testCase = "prediction" ):
         if not self.functions:
@@ -298,7 +323,7 @@ if __name__ == "__main__":
     
     cppParser = CppParser(testFile)
     cppParser.parse()
-    cppParser.saveGraphFunction()
+#    cppParser.saveGraphFunction()
 #    cppParser.loadGraphFunction()
     cppParser.writeTest("dupa.cpp", testCase="prediction")
     

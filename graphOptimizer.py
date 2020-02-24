@@ -19,25 +19,23 @@ class GraphOptimizer(GraphParser):
         GraphParser.__init__(self, source, lastLine)
     
     def primeFactorization(self, number):
-#        primeBoundary = ceil( sqrt(number) )
         factors = defaultdict(int)
         
         temp = number
         primeIndex = 0
-#        print("faktoryzacja: ",temp)
         while temp != 1:
             prime = self.subformFactory.primes[primeIndex]
             
             while temp % prime == 0:
                 factors[prime] += 1
                 temp = temp//prime
-#                print(prime, temp)
                 
             primeIndex += 1
         
         return factors
     
     def greedyScheme(self):
+        self.actualCycles = 0
         nodes2optimize = set([])
         nodes2remove = set([])
         operatorsOptim = set( [ "+", "-", "*" ] )
@@ -65,6 +63,7 @@ class GraphOptimizer(GraphParser):
                 nodes2optimize.add(node)
                 
                 
+                
         print("to remove: ", len(nodes2remove))
         print("to expand: ", len(nodes2optimize))
         print("to stay: ", toStay)
@@ -72,20 +71,26 @@ class GraphOptimizer(GraphParser):
         for node in nodes2remove:
             canonicalKey = self.graph.nodes[node]["canonicalKey"]
             del self.key2uniqueOperatorNodes[canonicalKey]
-        
-#        node = self.subformFactory.subformId2node[67]
-#        print("klucz od: ", node)
-#        print(self.graph.nodes[node]["canonicalKey"])
-#        
-#        for key in self.key2uniqueOperatorNodes:
-#            if len(key) < 3:
-#                print(key, self.key2uniqueOperatorNodes[key] )
             
         self.graph.remove_nodes_from(nodes2remove)
+        
         for n in nodes2optimize:
+            predecessors = list(self.graph.predecessors(n))
+            
+            for p in predecessors:
+                self.graph.remove_edge(p, n)
+        
+        for n in nodes2optimize:
+            if self.debug:
+                print(40*"#")
+                print("GREEDY EXPAND FOR NODE: ", n, self.graph.nodes[n]["variable"])
+                
             self.greedyExpand(n)
         
-    def greedyExpand(self, node, atomDistribution = None):
+    def greedyExpand(self, node, atomDistribution = None):    
+        if self.debug:
+            print("######################")
+                  
         form = self.graph.nodes[node]["form"]
         subformKey2atomDistribution = {}
         atomsOccurence = defaultdict(int)
@@ -101,80 +106,156 @@ class GraphOptimizer(GraphParser):
                 atomsOccurence[atom] += 1
                 
         if len(atomsOccurence) == 1 and len(form.subforms) == 1:
-            subformKey = list( form.subforms.keys() )[0]
-            primeKey = list( atomsOccurence.keys() )[0]
-            atomPower = subformKey2atomDistribution[subformKey][primeKey]
             
+            subformKey = list( form.subforms.keys() )[0]
+            primeKey =  list( atomsOccurence.keys() )[0] 
+            
+            atomPower = subformKey2atomDistribution[subformKey][primeKey]
+            primeNode = self.subformFactory.subformId2node[ primeKey ]
             if atomPower == 1:
                 coeff = form.subforms[subformKey]
+                if self.debug:
+                    print("znaleziono forma skladajaca sie z dokladnie jednego atomu")
+                    print(primeKey)
+                    print("z wspolczynnikiem: ", coeff)
                 
                 nodeName = str(coeff)
                 if not nodeName in self.graph.nodes:
                     self.graph.add_node(nodeName, variable = nodeName, kind = "input", level = 0)
+                    self.createPrimeForm(nodeName)
                     
                 self.graph.nodes[node]["operator"] = "*"
-                self.graph.add_edge(nodeName, node, fold = 1 )
-                self.graph.add_edge(str(primeKey), node, fold = 1 )
+                self.graph.nodes[node]["fix"] = "infix"
+                self.graph.nodes[node]["symmetric"] = True
+
+                self.addEdgeOrIncreaseFold(nodeName, node)
+                
+                if not primeNode in self.graph.nodes:
+                    print("nie znaleziono formy pierwszej w grafie! ", primeKey)
+                    raise Exception("nie znaleziono formy pierwszej w grafie! ")
+                    
+                
+                
+                self.addEdgeOrIncreaseFold(primeNode, node)
                 return
+
             
-        print("######################")
-        print(len(form.subforms))
-        print(form.subforms)
-        print(atomsOccurence)
         mostCommonAtom =  sorted(atomsOccurence.items(), key=lambda item: item[1])[-1][0]
-        print(mostCommonAtom)
+        if self.debug:
+            print("ilosc cubow: ",len(form.subforms))
+            print("postac cubow: ",form.subforms)
+            print("wystepowanie atomow",atomsOccurence)
+            print("wybrany dzielnik", mostCommonAtom)
+        
         
         devidedSubforms = {}
-        notDevidedSubforms = {}
         devidedAtomDistribution = {}
-        notDevidedAtomDistribution = {}
-        
-        subDevidedSubforms = {}
+        restSubforms = {}
+        restAtomDistribution = {}
+        quotientSubforms = {}
+        quotientAtomDistribution = {}
         
         for subKey in subformKey2atomDistribution:
             atomDistribution = subformKey2atomDistribution[subKey]
             if mostCommonAtom in atomDistribution:
+                quotientAtomDistribution[ subKey ] = deepcopy(atomDistribution)
                 atomDistribution[mostCommonAtom] -= 1
                 newKey = subKey//mostCommonAtom
                 if atomDistribution[mostCommonAtom] == 0:
                     del atomDistribution[mostCommonAtom]
                     
-                devidedAtomDistribution[newKey] = atomDistribution
-                devidedSubforms[newKey] = form.subforms[subKey]
-                subDevidedSubforms[subKey] = form.subforms[subKey]
+                if newKey == 1:
+                    coeff = form.subforms[subKey]
+                    nodeName = str(coeff)
+                    if self.debug:
+                        print("Doszedlem do jedynki w dzieleniu ", subKey , " przez ", mostCommonAtom)
+                        print("Dodaje nowy wierzchołek pierwszy, odpowiadajacy: ", nodeName)
+                    if not nodeName in self.graph.nodes:
+                        self.graph.add_node(nodeName, variable = nodeName, kind = "input", level = 0)
+                        self.createPrimeForm(nodeName)
+                    elif self.debug:
+                        print("wierzcholek juz istnieje")
+                        print(self.graph.nodes[nodeName])
+                        
+                    newKey = list(self.graph.nodes[nodeName]["form"].subforms.keys())[0]
+                    if newKey in devidedAtomDistribution:
+                        devidedSubforms[newKey] += 1
+                    else:
+                        devidedSubforms[newKey] = 1
+                        devidedAtomDistribution[newKey] = { newKey :  1 }
+                        
+                else:     
+                    if newKey in devidedAtomDistribution:
+                        devidedSubforms[newKey] += form.subforms[subKey]
+                    else:
+                        devidedAtomDistribution[newKey] = atomDistribution
+                        devidedSubforms[newKey] = form.subforms[subKey]
+                    
+                if subKey in quotientSubforms:
+                    raise Exception("Subform already exists in quotient!")
+                    
+                quotientSubforms[subKey] = form.subforms[subKey]
             else:
-                notDevidedAtomDistribution[subKey] = atomDistribution
-                notDevidedSubforms[subKey] = form.subforms[subKey]
+                if subKey in restAtomDistribution:
+                    raise Exception("Subform already exists in rest!")
                 
-        self.graph.nodes[node]["symmetric"] = False
+                restAtomDistribution[subKey] = atomDistribution
+                restSubforms[subKey] = form.subforms[subKey]
+                
+        self.graph.nodes[node]["symmetric"] = True
         self.graph.nodes[node]["fix"] = "infix"
         
         devidedForm = CanonicalForm()
         devidedForm.subforms = devidedSubforms
-        commonAtomNode = self.subformFactory.subformId2node[mostCommonAtom]
+        dividerAtomNode = self.subformFactory.subformId2node[mostCommonAtom]
         
-        if not notDevidedSubforms:
+        if not "kind" in self.graph.nodes[dividerAtomNode]:
+            raise Exception( "Devider atom not found in graph!!!" )
+        
+        if not restSubforms:            
+            #Sprawdzic czy krawedz juz istnieje!!!
+#            self.graph.add_edge(dividerAtomNode, node, fold = 1)
+            if self.debug:
+                print("nie ma reszty z dzielenia")
+                print( "Wprowadzam nowa krawedz od:" )
+                print( dividerAtomNode )
+                print( self.graph.nodes[dividerAtomNode]["form"].subforms )            
+                print("Wprowadzam nowy wierzcholek dla formy")
+                print(devidedForm.subforms)
             self.graph.nodes[node]["operator"] = "*"
-            
-            self.graph.add_edge(commonAtomNode, node, fold = 1)
-            newNode, presentInGraph = self.insertNewOperatorBottomUp("unk", node, devidedForm)
+            self.addEdgeOrIncreaseFold(dividerAtomNode, node)
+            newNode, presentInGraph = self.insertNewOperatorBottomUp("unkNoRest", node, devidedForm)
+#            cycles = list(nx.simple_cycles(self.graph))
+#            if len(cycles) > self.actualCycles:
+#                print("Powstal nowy cykl po insercie bottom up")
+#                self.actualCycles = len(cycles)                
+#                
+#                raise Exception("Detected cycle in graph")
+#            if node == "unkRest356op":
+#                raise Exception("jeden atom")
             if not presentInGraph:
+                if self.debug:
+                    print("Greedy expand dla nowego wierzcholka")
                 self.greedyExpand(newNode, devidedAtomDistribution)
         else:
+            if self.debug:
+                print("jest reszta z dzielenia")
             self.graph.nodes[node]["operator"] = "+"
-            notDevidedForm = CanonicalForm()
-            notDevidedForm.subforms = notDevidedSubforms
-            notDevidedNode, presentInGraph = self.insertNewOperatorBottomUp("unk", node, notDevidedForm)
+            restForm = CanonicalForm()
+            restForm.subforms = restSubforms
+            restNode, presentInGraph = self.insertNewOperatorBottomUp("unkRest", node, restForm)
             if not presentInGraph:
-                self.greedyExpand(notDevidedNode, notDevidedAtomDistribution)
+                self.greedyExpand(restNode, restAtomDistribution)
             
-            subdevidedForm = CanonicalForm()
-            subdevidedForm.subforms = subDevidedSubforms
-            subdevidedNode, presentInGraph = self.insertNewOperatorBottomUp("*", node, subdevidedForm, commonAtomNode  )
+            quotientForm = CanonicalForm()
+            quotientForm.subforms = quotientSubforms
+#            quotientNode, presentInGraph = self.insertNewOperatorBottomUp("*", node, quotientForm, dividerAtomNode  )
+            quotientNode, presentInGraph = self.insertNewOperatorBottomUp("*", node, quotientForm )
             if not presentInGraph:
-                lastNode, presentInGraph = self.insertNewOperatorBottomUp("unk", subdevidedNode, devidedForm )
-                if not presentInGraph:
-                    self.greedyExpand(lastNode, devidedAtomDistribution)
+                self.greedyExpand( quotientNode, quotientAtomDistribution )
+#                lastNode, presentInGraph = self.insertNewOperatorBottomUp("unk", quotientNode, devidedForm )
+#                if not presentInGraph:
+#                    self.greedyExpand(lastNode, devidedAtomDistribution)
             
     
     def findClusters(self):
@@ -586,8 +667,9 @@ class GraphOptimizer(GraphParser):
         for key in self.key2uniqueOperatorNodes:
             node = self.key2uniqueOperatorNodes[key]
             kind = self.graph.nodes[node]["kind"]
-            
             if kind == "output" and self.graph.nodes[node]["operator"] != "/":
+#                f2w.write(self.graph.nodes[node]["variable"])
+                f2w.write("\n")
                 f2w.write(key)
                 f2w.write("\n")
             elif kind != "input":

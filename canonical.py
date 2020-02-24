@@ -11,6 +11,7 @@ import hashlib
 class CanonicalSubformFactory:
     def __init__(self):
         self.subformId2node = {}
+        self.node2subformId = {}
         infile = open("primes.pickle",'rb')
         self.primes = pickle.load(infile)
         infile.close()
@@ -18,12 +19,14 @@ class CanonicalSubformFactory:
         
     def clean(self):
         self.subformId2node = {}
+        self.node2subformId = {}
         self.currentPrime = 0
         
     def createSubform(self, node):
         key = self.primes[self.currentPrime]
         self.currentPrime += 1
         self.subformId2node[key] = node
+        self.node2subformId[node] = key
                   
         return key
 

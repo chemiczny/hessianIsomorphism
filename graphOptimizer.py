@@ -43,7 +43,7 @@ class GraphOptimizer(GraphParser):
         
         for node in self.graph.nodes:
             
-            if self.graph.nodes[node]["kind"] == "input":
+            if self.graph.nodes[node]["kind"] in  [ "input", "integer" ]:
                 toStay+=1
                 continue
             
@@ -105,6 +105,14 @@ class GraphOptimizer(GraphParser):
             for atom in subformKey2atomDistribution[subKey]:
                 atomsOccurence[atom] += 1
                 
+        if len(atomsOccurence) == 0 and len(form.subforms) == 1:
+            subformKey = list( form.subforms.keys() )[0]
+            coeff = form.subforms[subformKey]
+            self.createIntegerForm(node, coeff)
+            self.graph.nodes[node]["kind"] = "integer"
+            self.graph.nodes[node]["variable"] = str(coeff)
+            return
+                
         if len(atomsOccurence) == 1 and len(form.subforms) == 1:
             
             subformKey = list( form.subforms.keys() )[0]
@@ -119,10 +127,16 @@ class GraphOptimizer(GraphParser):
                     print(primeKey)
                     print("z wspolczynnikiem: ", coeff)
                 
+                if primeKey == 1:
+                    raise Exception("Node with subform key equal to one!")
+#                    self.createIntegerForm(node, coeff)
+#                    self.graph.nodes[node]["kind"] = "integer"
+                    
+                
                 nodeName = str(coeff)
                 if not nodeName in self.graph.nodes:
-                    self.graph.add_node(nodeName, variable = nodeName, kind = "input", level = 0)
-                    self.createPrimeForm(nodeName)
+                    self.graph.add_node(nodeName, variable = nodeName, kind = "integer", level = 0)
+                    self.createIntegerForm(nodeName, coeff)
                     
                 self.graph.nodes[node]["operator"] = "*"
                 self.graph.nodes[node]["fix"] = "infix"
@@ -139,6 +153,8 @@ class GraphOptimizer(GraphParser):
                 self.addEdgeOrIncreaseFold(primeNode, node)
                 return
 
+        if not atomsOccurence:
+            return
             
         mostCommonAtom =  sorted(atomsOccurence.items(), key=lambda item: item[1])[-1][0]
         if self.debug:
@@ -164,32 +180,32 @@ class GraphOptimizer(GraphParser):
                 if atomDistribution[mostCommonAtom] == 0:
                     del atomDistribution[mostCommonAtom]
                     
-                if newKey == 1:
-                    coeff = form.subforms[subKey]
-                    nodeName = str(coeff)
-                    if self.debug:
-                        print("Doszedlem do jedynki w dzieleniu ", subKey , " przez ", mostCommonAtom)
-                        print("Dodaje nowy wierzchołek pierwszy, odpowiadajacy: ", nodeName)
-                    if not nodeName in self.graph.nodes:
-                        self.graph.add_node(nodeName, variable = nodeName, kind = "input", level = 0)
-                        self.createPrimeForm(nodeName)
-                    elif self.debug:
-                        print("wierzcholek juz istnieje")
-                        print(self.graph.nodes[nodeName])
-                        
-                    newKey = list(self.graph.nodes[nodeName]["form"].subforms.keys())[0]
-                    if newKey in devidedAtomDistribution:
-                        devidedSubforms[newKey] += 1
-                    else:
-                        devidedSubforms[newKey] = 1
-                        devidedAtomDistribution[newKey] = { newKey :  1 }
-                        
-                else:     
-                    if newKey in devidedAtomDistribution:
-                        devidedSubforms[newKey] += form.subforms[subKey]
-                    else:
-                        devidedAtomDistribution[newKey] = atomDistribution
-                        devidedSubforms[newKey] = form.subforms[subKey]
+#                if newKey == 1:
+#                    coeff = form.subforms[subKey]
+#                    nodeName = str(coeff)
+#                    if self.debug:
+#                        print("Doszedlem do jedynki w dzieleniu ", subKey , " przez ", mostCommonAtom)
+#                        print("Dodaje nowy wierzchołek pierwszy, odpowiadajacy: ", nodeName)
+#                    if not nodeName in self.graph.nodes:
+#                        self.graph.add_node(nodeName, variable = nodeName, kind = "input", level = 0)
+#                        self.createPrimeForm(nodeName)
+#                    elif self.debug:
+#                        print("wierzcholek juz istnieje")
+#                        print(self.graph.nodes[nodeName])
+#                        
+#                    newKey = list(self.graph.nodes[nodeName]["form"].subforms.keys())[0]
+#                    if newKey in devidedAtomDistribution:
+#                        devidedSubforms[newKey] += 1
+#                    else:
+#                        devidedSubforms[newKey] = 1
+#                        devidedAtomDistribution[newKey] = { newKey :  1 }
+#                        
+#                else:     
+                if newKey in devidedAtomDistribution:
+                    devidedSubforms[newKey] += form.subforms[subKey]
+                else:
+                    devidedAtomDistribution[newKey] = atomDistribution
+                    devidedSubforms[newKey] = form.subforms[subKey]
                     
                 if subKey in quotientSubforms:
                     raise Exception("Subform already exists in quotient!")

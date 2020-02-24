@@ -13,7 +13,7 @@ from canonical import CanonicalSubformFactory, CanonicalForm
 from canonical import addForms, multiplyForms, subtractForms, reverseFormSign
 
 from variable import Variable
-from parsingUtilities import isfloat
+from parsingUtilities import isfloat, isint
 
 """
 name - nazwa funkcji zczytana z pliku
@@ -382,6 +382,15 @@ class GraphParser:
         newKey = newForm.generateKey()
         self.graph.nodes[node]["canonicalKey"] = newKey
         self.key2uniqueOperatorNodes[newKey] = node
+        
+    def createIntegerForm(self, node, value):
+        newForm = CanonicalForm()
+        newForm.subforms[ 1 ] = value
+        
+        self.graph.nodes[node]["form"] = newForm
+        newKey = newForm.generateKey()
+        self.graph.nodes[node]["canonicalKey"] = newKey
+        self.key2uniqueOperatorNodes[newKey] = node
             
     def insertNewOperatorBottomUp(self, operatorName, output, canonicalForm):
         if not operatorName in [ "+", "*", "-", "unkRest", "unkNoRest" ] :
@@ -642,6 +651,11 @@ class GraphParser:
                     print("No operator found! "+str(exprSplit))
                     raise Exception("No operator found! "+str(exprSplit))
                     
+            elif isint(token):
+                currentNode = token
+                if not token in self.graph.nodes:
+                    self.graph.add_node(token, variable = token, kind = "integer", level = 0)
+                    self.createIntegerForm(token, int(token))
                     
             elif isfloat(token):
                 currentNode = token
@@ -769,9 +783,15 @@ class GraphParser:
             if not "kind" in self.graph.nodes[node]:
                 print("nie ma rodzaju!", node)
                 print(self.graph.nodes[node])
+                raise Exception("Node without a kind!")
             
             if self.graph.nodes[node]["kind"] == "input":
                 print("wejsciowy", node, self.graph.nodes[node])
+                continue
+            
+            elif self.graph.nodes[node]["kind"] == "integer":
+                print("liczba calkowita", node, self.graph.nodes[node])
+                self.graph.nodes[node]["variable"] = str(self.graph.nodes[node]["form"].subforms[1])
                 continue
             
             else:
@@ -869,7 +889,7 @@ class GraphParser:
         for node in self.graph.nodes:
             kind = self.graph.nodes[node]["kind"]
             
-            if kind == "input":
+            if kind == "input" or kind == "integer":
                 continue
             
             operator = self.graph.nodes[node]["operator"]
@@ -905,6 +925,9 @@ class GraphParser:
             if kind == "input":
                 newNode = node
                 self.graph.add_node(newNode, variable = oldGraph.nodes[node]["variable"] , kind = "input",  level = 0, form = oldGraph.nodes[node]["form"] )
+            elif kind == "integer":
+                newNode = node
+                self.graph.add_node(newNode, variable = oldGraph.nodes[node]["variable"] , kind = "integer",  level = 0, form = oldGraph.nodes[node]["form"] )
             else:
                 symmetry = oldGraph.nodes[node]["symmetric"]
                 inputsList = self.prepareInputList(oldGraph, node)
@@ -953,6 +976,9 @@ class GraphParser:
     def prepareInputList(self, graph, node):
         predecessors = list(graph.predecessors( node))
                 
+        if not predecessors:
+            raise Exception("Node without predecessors!")
+        
         order2predecessor = {}
         
         if not graph.nodes[node]["symmetric"]:

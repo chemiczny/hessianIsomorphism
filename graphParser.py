@@ -56,6 +56,8 @@ class GraphParser:
         
         self.debug = False
         
+        self.forcePrimeLevel = 0
+        
         if source and lastLine:
             self.read(source, lastLine)
             
@@ -424,9 +426,10 @@ class GraphParser:
         return nodeName, False
         
     def insertNewOperator(self, operatorName, inputs, fix , forceNewNode = False, oldCanonicalForm = None):
-#        print("Dodaje wierzcholek: ", operatorName, "wejscia", inputs)
         if not operatorName in self.operators:
             self.operators[operatorName] = -1           
+            
+        level = max( [ self.graph.nodes[inp]["level"] for inp in inputs ] ) + 1
             
         canonicalForm = None
         if oldCanonicalForm:
@@ -436,7 +439,7 @@ class GraphParser:
             if key in self.key2uniqueOperatorNodes and not forceNewNode:
                 return self.key2uniqueOperatorNodes[key]
         
-        elif operatorName in [ "+", "*", "-" ] :
+        elif operatorName in [ "+", "*", "-" ] and level > self.forcePrimeLevel :
             canonicalForm = self.generateCanonicalForm(operatorName, inputs)
             key = canonicalForm.generateKey()
                 
@@ -449,16 +452,13 @@ class GraphParser:
                 return self.notCanonicalKey2Node[simpleKey]
             
         inp2fold = {}
-        level = 0
         
         for inp in inputs:
-            level = max(level, self.graph.nodes[inp]["level"])
             if inp in inp2fold:
                 inp2fold[inp] += 1
             else:
                 inp2fold[inp] = 1
         
-        level += 1
         self.operators[operatorName] += 1
         
         nodeName = operatorName + str( self.operators[operatorName] ) +"op"
@@ -480,9 +480,10 @@ class GraphParser:
         return nodeName
     
     def insertNewAssimetricOperator(self, operatorName, inputs, fix, forceNewNode = False, oldCanonicalForm = None):
-#        print("Dodaje wierzcholek: ", operatorName, "wejscia", inputs)
         if not operatorName in self.operators:
             self.operators[operatorName] = -1
+            
+        level = max( [ self.graph.nodes[inp]["level"] for inp in inputs ] ) + 1
             
         canonicalForm = None
         if oldCanonicalForm:
@@ -490,7 +491,7 @@ class GraphParser:
             key = canonicalForm.generateKey()
             if key in self.key2uniqueOperatorNodes and not forceNewNode:
                 return self.key2uniqueOperatorNodes[key]
-        elif operatorName in [ "-" ] :
+        elif operatorName in [ "-" ] and level > self.forcePrimeLevel:
             canonicalForm = self.generateCanonicalForm(operatorName, inputs)
             key = canonicalForm.generateKey()
             if key in self.key2uniqueOperatorNodes and not forceNewNode:
@@ -501,13 +502,10 @@ class GraphParser:
             
             if simpleKey in self.notCanonicalKey2Node and not forceNewNode:
                 return self.notCanonicalKey2Node[simpleKey]
-            
-        level = 0
         
         for inp in inputs:
             level = max(level, self.graph.nodes[inp]["level"])
             
-        level += 1
         self.operators[operatorName] += 1
         
         nodeName = operatorName + str( self.operators[operatorName] )+"op"
@@ -926,7 +924,7 @@ class GraphParser:
                 newNode = node
                 self.graph.add_node(newNode, variable = oldGraph.nodes[node]["variable"] , kind = "input",  level = 0, form = oldGraph.nodes[node]["form"] )
             elif kind == "integer":
-                newNode = node
+                newNode = oldGraph.nodes[node]["variable"]
                 self.graph.add_node(newNode, variable = oldGraph.nodes[node]["variable"] , kind = "integer",  level = 0, form = oldGraph.nodes[node]["form"] )
             else:
                 symmetry = oldGraph.nodes[node]["symmetric"]

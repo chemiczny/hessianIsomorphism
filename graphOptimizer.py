@@ -54,6 +54,10 @@ class GraphOptimizer(GraphParser):
             if self.graph.nodes[node]["kind"] == "output" :
                 nodes2optimize.add(node)
                 continue
+            
+            if node in self.subformFactory.node2subformId:
+                toStay += 1
+                continue
                 
             successors = list(self.graph.successors(node))
             
@@ -180,27 +184,6 @@ class GraphOptimizer(GraphParser):
                 if atomDistribution[mostCommonAtom] == 0:
                     del atomDistribution[mostCommonAtom]
                     
-#                if newKey == 1:
-#                    coeff = form.subforms[subKey]
-#                    nodeName = str(coeff)
-#                    if self.debug:
-#                        print("Doszedlem do jedynki w dzieleniu ", subKey , " przez ", mostCommonAtom)
-#                        print("Dodaje nowy wierzchołek pierwszy, odpowiadajacy: ", nodeName)
-#                    if not nodeName in self.graph.nodes:
-#                        self.graph.add_node(nodeName, variable = nodeName, kind = "input", level = 0)
-#                        self.createPrimeForm(nodeName)
-#                    elif self.debug:
-#                        print("wierzcholek juz istnieje")
-#                        print(self.graph.nodes[nodeName])
-#                        
-#                    newKey = list(self.graph.nodes[nodeName]["form"].subforms.keys())[0]
-#                    if newKey in devidedAtomDistribution:
-#                        devidedSubforms[newKey] += 1
-#                    else:
-#                        devidedSubforms[newKey] = 1
-#                        devidedAtomDistribution[newKey] = { newKey :  1 }
-#                        
-#                else:     
                 if newKey in devidedAtomDistribution:
                     devidedSubforms[newKey] += form.subforms[subKey]
                 else:
@@ -229,8 +212,6 @@ class GraphOptimizer(GraphParser):
             raise Exception( "Devider atom not found in graph!!!" )
         
         if not restSubforms:            
-            #Sprawdzic czy krawedz juz istnieje!!!
-#            self.graph.add_edge(dividerAtomNode, node, fold = 1)
             if self.debug:
                 print("nie ma reszty z dzielenia")
                 print( "Wprowadzam nowa krawedz od:" )
@@ -241,14 +222,7 @@ class GraphOptimizer(GraphParser):
             self.graph.nodes[node]["operator"] = "*"
             self.addEdgeOrIncreaseFold(dividerAtomNode, node)
             newNode, presentInGraph = self.insertNewOperatorBottomUp("unkNoRest", node, devidedForm)
-#            cycles = list(nx.simple_cycles(self.graph))
-#            if len(cycles) > self.actualCycles:
-#                print("Powstal nowy cykl po insercie bottom up")
-#                self.actualCycles = len(cycles)                
-#                
-#                raise Exception("Detected cycle in graph")
-#            if node == "unkRest356op":
-#                raise Exception("jeden atom")
+
             if not presentInGraph:
                 if self.debug:
                     print("Greedy expand dla nowego wierzcholka")
@@ -265,13 +239,10 @@ class GraphOptimizer(GraphParser):
             
             quotientForm = CanonicalForm()
             quotientForm.subforms = quotientSubforms
-#            quotientNode, presentInGraph = self.insertNewOperatorBottomUp("*", node, quotientForm, dividerAtomNode  )
+
             quotientNode, presentInGraph = self.insertNewOperatorBottomUp("*", node, quotientForm )
             if not presentInGraph:
                 self.greedyExpand( quotientNode, quotientAtomDistribution )
-#                lastNode, presentInGraph = self.insertNewOperatorBottomUp("unk", quotientNode, devidedForm )
-#                if not presentInGraph:
-#                    self.greedyExpand(lastNode, devidedAtomDistribution)
             
     
     def findClusters(self):
@@ -361,7 +332,7 @@ class GraphOptimizer(GraphParser):
             
             nodeType = self.graph.nodes[element]["kind"]
             
-            if nodeType != "input":            
+            if not nodeType in [ "input" , "integer" ]:            
                 elementOperator = self.graph.nodes[element]["operator"]
                 if elementOperator != operator:
                     continue

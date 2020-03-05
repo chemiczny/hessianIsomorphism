@@ -51,7 +51,9 @@ class GraphParser:
         
         self.graph = nx.DiGraph()
         self.graph.add_node("Pi",  variable = "Pi", kind = "input", level = 0)
+        self.graph.add_node("1",  variable = "1", kind = "integer", level = 0)
         self.createPrimeForm("Pi")
+        self.createIntegerForm("1", 1)
         self.constants = [ "Pi" ]
         
         self.debug = False
@@ -491,12 +493,16 @@ class GraphParser:
             key = canonicalForm.generateKey()
             if key in self.key2uniqueOperatorNodes and not forceNewNode:
                 return self.key2uniqueOperatorNodes[key]
-        elif operatorName in [ "-" ] and level > self.forcePrimeLevel:
+        elif operatorName == "-"  and level > self.forcePrimeLevel:
             canonicalForm = self.generateCanonicalForm(operatorName, inputs)
             key = canonicalForm.generateKey()
             if key in self.key2uniqueOperatorNodes and not forceNewNode:
                 return self.key2uniqueOperatorNodes[key]
             
+#        elif operatorName == "/" and inputs[0] != "1" and level > self.forcePrimeLevel :
+#            devider = self.insertNewAssimetricOperator( "/", [ "1" , inputs[1] ], "infix" )
+#            return self.insertNewOperator( "*", [ inputs[0], devider ], "infix" )
+#            
         else:
             simpleKey = "_".join(sorted(inputs)) + "_"+operatorName
             
@@ -526,6 +532,11 @@ class GraphParser:
             for index, inp in enumerate(inputs):
                 self.graph.add_edge(inp, nodeName, fold = 1, order = index )
         else:
+            if len(inputs) != 2:
+                raise Exception("Weird assymetrix operator")
+                
+            if operatorName in [ "-" , "/"]:
+                raise Exception("Zero or one value node!")
             self.graph.add_edge(inputs[0], nodeName, fold = 2, order = 0 )
         
         return nodeName

@@ -13,6 +13,7 @@ from copy import deepcopy
 #from math import ceil, sqrt
 from collections import defaultdict
 from canonical import CanonicalForm
+#import heapq
 
 class GraphOptimizer(GraphParser):
     def __init__(self , source = None, lastLine = None):
@@ -33,6 +34,91 @@ class GraphOptimizer(GraphParser):
             primeIndex += 1
         
         return factors
+    
+    def findClusterSubgraphs(self, acceptableOperators = [ "+", "-", "*", None ], acceptableKinds = [ "middle" , "integer" ] ):
+        sortedNodes = list(reversed(list( nx.topological_sort(self.graph) )))
+        
+        verifiedNodes = set([])
+        clusters = []
+        clusterSizes = []
+        nodesInClusters = 0
+        maxSize = 0
+        
+        for node in sortedNodes:
+            
+            nodeKind = self.graph.nodes[node]["kind"]
+            nodeOperator = None
+            
+            if not nodeKind in [ "input", "integer" ]:
+                nodeOperator = self.graph.nodes[node]["operator"]
+                
+            if not nodeOperator in acceptableOperators:
+                continue
+            
+            if not nodeKind in acceptableKinds:
+                continue
+            
+            if node in verifiedNodes:
+                continue
+            
+            newCluster = [ node ]
+            newClusterSet = set(newCluster)
+#            heap = [ ( -self.graph.nodes[n]["level"] , n  ) for n in self.graph.predecessors(node)  ]
+#            heapq.heapify( heap )
+            
+            queue = list(self.graph.predecessors(node))
+            
+#            while heap:
+            while queue:
+#                clusterCandidate = heapq.heappop( heap )[1]
+                clusterCandidate = queue.pop(0)
+                
+                candidateKind = self.graph.nodes[clusterCandidate]["kind"]
+                candidateOperator = None
+                
+                if not candidateKind in [ "input", "integer"]:
+                    candidateOperator = self.graph.nodes[clusterCandidate]["operator"]
+                
+                if not candidateKind in acceptableKinds:
+                    continue
+                
+                if not candidateOperator in acceptableOperators:
+                    continue
+                
+                candidateSuccessors = set( self.graph.successors(clusterCandidate) )
+                
+                if len(candidateSuccessors - newClusterSet) > 0:
+                    continue
+                
+                if not clusterCandidate in newClusterSet:
+                    newCluster.append(clusterCandidate)
+                    newClusterSet.add(clusterCandidate)
+                
+                for p in self.graph.predecessors(clusterCandidate):
+                    queue.append(p)
+#                    level = self.graph.nodes[p]["level"]
+#                    heapq.heappush( heap, ( -level, p ) )
+                
+            if len(newCluster) > 1:
+                clusters.append(newCluster)
+                clusterSizes.append(len(newCluster))
+                verifiedNodes |= newClusterSet
+                nodesInClusters += len(newCluster)
+                maxSize = max(maxSize, len(newCluster))
+                
+        print("Found ", len(clusters), " clusters")
+        print("Nodes in cluster: ", nodesInClusters)
+        print("Max size: ", maxSize)
+        return clusters
+#        plt.figure()
+#        n, bins, patches = plt.hist(clusterSizes, 150, density=False, facecolor='g', alpha=0.75)
+#
+#
+#        plt.xlabel('Cluster size')
+#        plt.ylabel('Number of occurences')
+#        plt.title('Acceptable operators: '+str(acceptableOperators))
+#        plt.grid(True)
+#        plt.show()
     
     def greedyScheme(self):
         self.actualCycles = 0
@@ -247,56 +333,27 @@ class GraphOptimizer(GraphParser):
     
     def findClusters(self):
         self.log("Searching for cluster start...")
-        clusterFound = True
         
+        totalNodes = 0
         searchingStart = time()
-#        maxClusterFound = 5000
-        clusterIt = 0
         maxClusterSize = 0
-        sortedNodes = list(reversed(list( nx.topological_sort(self.graph) )))
-        lastNode = None
         
-        while clusterFound:
-            clusterFound = False
-            
-            for node in sortedNodes:
-                if lastNode != None and node != lastNode:
-                    continue
-                else:
-                    lastNode = None
+        multClusters = self.findClusterSubgraphs(acceptableOperators = [ "*" ], acceptableKinds = [ "middle" ] )
+        plusClusters = self.findClusterSubgraphs(acceptableOperators = [ "+" ], acceptableKinds = [ "middle" ] )
+        
+        allClusters = multClusters + plusClusters
+        
+        for cluster in allClusters:
+            clusterSize = len(cluster)
+            totalNodes += clusterSize
+
+            maxClusterSize = max(clusterSize, maxClusterSize)
                 
-                nodeType = self.graph.nodes[node]["kind"]
-                if nodeType != "middle":
-                    continue
-                
-                operator = self.graph.nodes[node]["operator"]
-                
-                if operator!= "+" and operator != "*":
-                    continue
-                
-                newCluster = self.findMaximumCluster(node, operator, sortedNodes)
-                
-                if len(newCluster) > 1:
-                    clusterFound = True
-                    maxClusterSize = max(maxClusterSize, len(newCluster))
-                    for node2remove in newCluster[1:]:
-                        sortedNodes.remove(node2remove)
-                    lastNode = newCluster[0]
-                    
-                    self.transformCluster(newCluster)
-                    break
-                
-            if clusterFound:
-#                print("znaleziony kluster: ",len(newCluster))
-                clusterIt += 1
-                if clusterIt % 500 == 0:
-                    print(clusterIt)
-                
-#            if clusterIt > maxClusterFound:
-#                break
+            self.transformCluster(cluster)
                 
         timeTaken = time() - searchingStart
-        print("znaleziono: ", clusterIt, " klastrow")
+        print("znaleziono: ", len(allClusters), " klastrow")
+        print("nodes: ",totalNodes)
         print("najwiekszy: ", maxClusterSize)
         print("czas: ", timeTaken)
         self.log("Searching for cluster finished.")
@@ -320,48 +377,6 @@ class GraphOptimizer(GraphParser):
                     
             self.graph.remove_node(node)
         
-                
-    def findMaximumCluster(self, node, operator, sortedNodes):
-        confirmedCluster = set([node])
-        clusterList = [ node ]
-        
-        queue = set(self.graph.predecessors( node))
-        
-        while queue:
-            element, queue = self.getNextElement(sortedNodes, queue)
-            
-            nodeType = self.graph.nodes[element]["kind"]
-            
-            if not nodeType in [ "input" , "integer" ]:            
-                elementOperator = self.graph.nodes[element]["operator"]
-                if elementOperator != operator:
-                    continue
-            else:
-                continue
-            
-            elementSuccesors = set( self.graph.successors( element) )
-            notAcceptableSuccesors = elementSuccesors - confirmedCluster
-#            print(len(notAcceptableSuccesors))
-            if notAcceptableSuccesors:
-#                print("odrzucam")
-                continue
-            
-            previousLen = len(confirmedCluster)
-            confirmedCluster.add(element)
-            actualLen = len(confirmedCluster)
-            
-            if previousLen < actualLen:
-                clusterList.append(element)
-            
-            queue |= set( self.graph.predecessors( element ) )
-            
-        return clusterList
-    
-    def getNextElement(self, sortedNodes, queue):
-        for node in sortedNodes:
-            if node in queue:
-                queue.remove(node)
-                return node, queue
             
     def histogramOfSuccessors(self):
         succesorsNoList = []
@@ -399,6 +414,39 @@ class GraphOptimizer(GraphParser):
         plt.xlabel('Level')
         plt.ylabel('Probability')
         plt.title('Histogram of levels for operator '+operator)
+        plt.grid(True)
+        plt.show()
+        
+    def histogrameOfdevideInputs(self):
+        levelsList = []
+        uniqueDeviders= set([])
+        devidesNo = 0
+        for node in self.graph.nodes:
+            if "operator" in self.graph.nodes[node]:
+                if self.graph.nodes[node]["operator"] == "/":
+                    devidesNo += 1
+                    pred = list(self.graph.predecessors(node))
+                    order1 = self.graph[pred[0]][node]["order"]
+                    order2 = self.graph[pred[1]][node]["order"]
+                    
+                    divider = None
+                    if order1 > order2:
+                        divider = pred[0]
+                    else:
+                        divider = pred[1]
+                    
+                    uniqueDeviders.add(divider)
+                    levelsList.append(  self.graph.nodes[divider]["level"]   )
+            
+        print("Devides no: ", devidesNo)
+        print("Number of unique deviders: ", len(uniqueDeviders))
+        plt.figure()
+        n, bins, patches = plt.hist(levelsList, 150, density=False, facecolor='g', alpha=0.75)
+
+
+        plt.xlabel('Level')
+        plt.ylabel('Probability')
+        plt.title('Histogram of levels for operator ')
         plt.grid(True)
         plt.show()
             
@@ -495,8 +543,8 @@ class GraphOptimizer(GraphParser):
                 nodeFold = self.graph[node2change][node]["fold"]
                 self.graph.remove_edge(node2change, node)
                 nodes2deleteForm.append(node2change)
-                if "form" in self.graph.nodes[node2change]:
-                    del self.graph.nodes[node2change]["form"] 
+#                if "form" in self.graph.nodes[node2change]:
+#                    del self.graph.nodes[node2change]["form"] 
                     
                 newInputs += nodeFold * [ node2change ]
                 
@@ -669,6 +717,8 @@ class GraphOptimizer(GraphParser):
         f2w.close()
         
     def findDeadEnds(self):
+        print("Searching for dead ends...")
+        deletedAtoms = 0
         seeds = []
         for node in self.graph.nodes:
             successorsNo = len(list(self.graph.successors(node)))
@@ -682,11 +732,14 @@ class GraphOptimizer(GraphParser):
             
             predecessors = list(self.graph.predecessors(node))
             self.graph.remove_node(node)
+            deletedAtoms += 1
             
             for p in predecessors:
                 successorsNo = len(list(self.graph.successors(p)))
                 if successorsNo == 0 and self.graph.nodes[p]["kind"] != "output":
                     seeds.append(p)
+                    
+        print("Deleted: ", deletedAtoms)
 
     def analyseSubGraphOverlaping(self):
         totalNodesNo = len( list( self.graph.nodes ) )

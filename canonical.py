@@ -29,13 +29,6 @@ class CanonicalSubformFactory:
         self.node2subformId[node] = key
                   
         return key
-
-#def atomKey(name, power):
-#    key = name
-#    if power != 1:
-#        key += "^"+str(power)
-#        
-#    return key
         
 
 def multiplyForms(form1, form2):
@@ -44,20 +37,14 @@ def multiplyForms(form1, form2):
     
     for s1key in form1.subforms:
         for s2key in form2.subforms:
-#                newForm = deepcopy( temp[s1key] )
             sub1Coeff = form1.subforms[s1key]
             sub2Coeff = form2.subforms[s2key]
             
-#            sub1 = __SubformFactory__.subformKey2atomDict[s1key]
-#            sub2 = __SubformFactory__.subformKey2atomDict[s2key]
-#            
-#            atomDict = subformMultAtomDict( sub1 , sub2 )
             newKey = s1key*s2key
             
             if not newKey in newForm.subforms:
                 newCoeff = sub1Coeff*sub2Coeff
                 newForm.subforms[newKey] = newCoeff
-#                __SubformFactory__.createSubform( atomDict, newKey )
             else:
                 newCoeff = sub1Coeff*sub2Coeff  + newForm.subforms[newKey]
                 newForm.subforms[newKey] = newCoeff
@@ -137,10 +124,8 @@ def atomDict2subformKey(atomDict):
     
 
 class CanonicalForm:
-#    __slots__ = "subforms"
     def __init__(self):
         self.subforms = {}
-#        self.subformsDown = []
     
     def generateKey(self):
         keyList = []

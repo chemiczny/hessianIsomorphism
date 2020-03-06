@@ -36,23 +36,38 @@ class CppParser:
         self.functions.append(newFunction)
         
         cppF.close()
-        
+#        newFunction.findClusterSubgraphs(acceptableOperators = [ "+", "-", "*", "/", None ], acceptableKinds = [ "middle"  ] )
+#        newFunction.greedyScheme()
 #        print("szukam klastrow ")
+#        newFunction.findClusterSubgraphs(acceptableOperators = [ "*" ], acceptableKinds = [ "middle" ] )
+#        newFunction.findClusterSubgraphs(acceptableOperators = [ "+" ], acceptableKinds = [ "middle" ] )
+#        newFunction.findClusterSubgraphs(acceptableOperators = [ "+" , "*" ], acceptableKinds = [ "middle" ] )
+#        newFunction.findClusterSubgraphs( )
+#        newFunction.rebuildGraph()
 #        newFunction.findClusters()
 #        print("przebudowuje graf ", len(newFunction.graph.nodes))
 #        newFunction.rebuildGraph()
 #        print("Done ",len(newFunction.graph.nodes) )
 #        newFunction.analysePools()
-        
-        print("szukam slepych uliczek")
         newFunction.findDeadEnds()
-        newFunction.rebuildGraph()
-        print("Analizuje nawiasy: ")
-        newFunction.simplifyBrackets()
-        newFunction.rebuildGraph()
-        
-#        newFunction.dumplOutputCanonicalForm("canonicalOutputs.dat")
+#        newFunction.rebuildGraph()
+#        newFunction.findDeadEnds()
 #        newFunction.greedyScheme()
+#        newFunction.dumpNodeFormData('+175op', "beforeRebuild.log")
+#        newFunction.cleanForms()
+        newFunction.rebuildGraph()
+        newFunction.findAlternativePathProt()
+#        newFunction.findClusterSubgraphs(acceptableOperators = [ "+", "-", "*", None ], acceptableKinds = [ "middle"  ] )
+#        print("szukam slepych uliczek")
+#        newFunction.findDeadEnds()
+#        newFunction.rebuildGraph()
+#        print("Analizuje nawiasy: ")
+#        newFunction.simplifyBrackets()
+#        newFunction.rebuildGraph()
+#        newFunction.histogrameOfdevideInputs()
+#        newFunction.dumplOutputCanonicalForm("canonicalOutputs.dat")
+#        newFunction.findClusters()
+#        newFunction.rebuildGraph()
 #        newFunction.simplifyBrackets()
 #        newFunction.rebuildGraph()
 #        print("znowu szukam klastrów")
@@ -127,7 +142,7 @@ class CppParser:
 #        newFunction.histogramOfLevels("-")
 #        newFunction.analyseSubGraphOverlaping()
         arraysSize = str(newFunction.maxOutputSize+1)
-        print("najwiekszy wymiar tablicy wyjsciowej: ",newFunction.maxOutputSize)
+        print("najwiekszy wymiar tablicy wyjsciowej: ",newFunction.maxOutputSize+1)
         testFile.write("\n\nint main() { \n")
         
         arraysNo = len(newFunction.outputs)
@@ -284,8 +299,8 @@ class CppParser:
         self.functions = pickle.load(infile)
         infile.close()
         
-    def initSubgraphs(self, minSup):
-        self.isomorphs = IsomorphCollection(self.functions[0], minSup)
+#    def initSubgraphs(self, minSup):
+#        self.isomorphs = IsomorphCollection(self.functions[0], minSup)
         
     def getOccurence(self):
         return self.isomorphs.getOccurence()
@@ -317,7 +332,7 @@ class CppParser:
 if __name__ == "__main__":
 #    testFile = "testData/short.cpp"
 #    testFile = "testData/d2_ne_ss_AA.ey.cpp"
-    testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_ppps_AA.ey.cpp"
+    testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_pppp_AA.ey.cpp"
 #    testFile = "/home/michal/Projects/niedoida/gto_d1_kit/src/d_ee_dddd_A3.ey.cpp"
 #    testFile = "testData/d2_ee_ppps_AA.ey.cpp"
     

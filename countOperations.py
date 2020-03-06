@@ -37,7 +37,7 @@ while line and not "void" in line:
     operators["sqrt"] += line.count("sqrt")
     operators["pow"] += line.count("pow")
     operators["exp"] += line.count("exp")
-    operators["double"] +=  line.count("double")
+#    operators["double"] +=  line.count("double")
     lineNo += 1
     
 print(key, lineNo)
@@ -65,7 +65,7 @@ while line:
     operators["sqrt"] += line.count("sqrt")
     operators["pow"] += line.count("pow")
     operators["exp"] += line.count("exp")
-    operators["double"] +=  line.count("double")
+#    operators["double"] +=  line.count("double")
     lineNo += 1
 print(key, lineNo)
 

@@ -13,10 +13,9 @@ from copy import deepcopy
 #from math import ceil, sqrt
 from collections import defaultdict
 from canonical import CanonicalForm
-#import heapq
 
 class GraphOptimizer(GraphParser):
-    def __init__(self , source = None, lastLine = None):
+    def __init__(self, source = None, lastLine = None):
         GraphParser.__init__(self, source, lastLine)
     
     def primeFactorization(self, number):
@@ -35,7 +34,7 @@ class GraphOptimizer(GraphParser):
         
         return factors
     
-    def findClusterSubgraphs(self, acceptableOperators = [ "+", "-", "*", None ], acceptableKinds = [ "middle" , "integer" ] ):
+    def findClusterSubgraphs(self, acceptableOperators = [ "+", "-", "*", None ], acceptableKinds = [ "middle" , "integer" ], minimumSize = 2, minimumCost = 0 ):
         sortedNodes = list(reversed(list( nx.topological_sort(self.graph) )))
         
         verifiedNodes = set([])
@@ -63,14 +62,11 @@ class GraphOptimizer(GraphParser):
             
             newCluster = [ node ]
             newClusterSet = set(newCluster)
-#            heap = [ ( -self.graph.nodes[n]["level"] , n  ) for n in self.graph.predecessors(node)  ]
-#            heapq.heapify( heap )
             
             queue = list(self.graph.predecessors(node))
+            clusterCost = len(queue) -1
             
-#            while heap:
             while queue:
-#                clusterCandidate = heapq.heappop( heap )[1]
                 clusterCandidate = queue.pop(0)
                 
                 candidateKind = self.graph.nodes[clusterCandidate]["kind"]
@@ -86,6 +82,7 @@ class GraphOptimizer(GraphParser):
                     continue
                 
                 candidateSuccessors = set( self.graph.successors(clusterCandidate) )
+                candidatePredecessors = list(self.graph.predecessors(clusterCandidate))
                 
                 if len(candidateSuccessors - newClusterSet) > 0:
                     continue
@@ -93,13 +90,12 @@ class GraphOptimizer(GraphParser):
                 if not clusterCandidate in newClusterSet:
                     newCluster.append(clusterCandidate)
                     newClusterSet.add(clusterCandidate)
+                    clusterCost += len(candidatePredecessors) - 1
                 
-                for p in self.graph.predecessors(clusterCandidate):
+                for p in candidatePredecessors:
                     queue.append(p)
-#                    level = self.graph.nodes[p]["level"]
-#                    heapq.heappush( heap, ( -level, p ) )
                 
-            if len(newCluster) > 1:
+            if len(newCluster) >= minimumSize and clusterCost >= minimumCost:
                 clusters.append(newCluster)
                 clusterSizes.append(len(newCluster))
                 verifiedNodes |= newClusterSet
@@ -119,6 +115,109 @@ class GraphOptimizer(GraphParser):
 #        plt.title('Acceptable operators: '+str(acceptableOperators))
 #        plt.grid(True)
 #        plt.show()
+        
+    def findAlternativePath(self):
+        print("Searching for alterntives paths...")
+        clusters = self.findClusterSubgraphs(acceptableOperators = [ "+", "-", "*" ], acceptableKinds = [ "middle"  ], minimumSize = 1, minimumCost = 4 )
+#        allClusterNodes = set([])
+
+        
+#        for c in clusters:
+#            allClusterNodes |= set(c[1:])
+            
+        basesFound = 0
+        fullVectorsFound = 0
+        
+        for c in clusters:
+            root = c[0]
+        
+            rootSubformSet = set(self.graph.nodes[root]["form"].subforms.keys())
+            forbiddenNodes = set(c) | self.getAllSuccessors(root)
+            
+            fullVectors, potentialBase = self.findSubsetForms(rootSubformSet, forbiddenNodes )
+            
+            if potentialBase or fullVectors:
+                basesFound += 1
+                
+            if fullVectors:
+                fullVectorsFound += 1
+                
+        print("Found potential bases for ", basesFound , " of ", len(clusters))
+        print("Found full vectors bases for ", fullVectorsFound , " of ", len(clusters)) 
+        
+    def findAlternativePathProt(self):
+        print("Searching for alterntives paths...")
+            
+        basesFound = 0
+        fullVectorsFound = 0
+        chances = 0
+        print("All nodes: ", len(self.graph.nodes()) )
+        
+        for i, n in enumerate(self.graph.nodes):
+            if i % 200 == 0:
+                print(i)
+                
+            
+            if not "operator" in self.graph.nodes[n]:
+                continue
+        
+            operator = self.graph.nodes[n]["operator"]
+            
+            if not operator in [ "+", "-", "*" ]:
+                continue
+        
+            chances += 1
+            rootSubformSet = set(self.graph.nodes[n]["form"].subforms.keys())
+            forbiddenNodes = set( self.graph.predecessors(n) ) | self.getAllSuccessors(n)
+            forbiddenNodes.add(n)
+            
+            fullVectors, potentialBase = self.findSubsetForms(rootSubformSet, forbiddenNodes )
+            
+            if potentialBase or fullVectors:
+                basesFound += 1
+                
+            if fullVectors:
+                fullVectorsFound += 1
+                
+            
+                
+        print("Found potential bases for ", basesFound , " of ", chances)
+        print("Found full vectors bases for ", fullVectorsFound , " of ", chances) 
+            
+    def getAllSuccessors(self, node):
+        queue = set(self.graph.successors(node))
+        allSuccessors = deepcopy(queue)
+        
+        while queue:
+            newNode = queue.pop()
+            
+            newSuccessors = set(self.graph.successors(newNode))
+            allSuccessors |= newSuccessors
+            queue |= newSuccessors
+            
+        return allSuccessors
+        
+            
+    def findSubsetForms(self, subformSet2search, notAcceptableNodes ):
+        perfectMatch = []
+        similarNodes = []
+        perfectMatch = False
+        allCoords = set([])
+        
+        for node in self.graph.nodes:
+            if node in notAcceptableNodes:
+                continue
+            
+            subformSet = set(self.graph.nodes[node]["form"].subforms.keys())
+            if len( subformSet - subformSet2search ) == 0 :
+                
+                similarNodes.append(node)
+        
+            if len(subformSet2search) == len(allCoords):
+                perfectMatch = True
+                break
+        
+        return perfectMatch, similarNodes
     
     def greedyScheme(self):
         self.actualCycles = 0

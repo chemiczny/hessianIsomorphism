@@ -146,16 +146,18 @@ class GraphOptimizer(GraphParser):
         print("Found full vectors bases for ", fullVectorsFound , " of ", len(clusters)) 
         
     def findAlternativePathProt(self):
-        print("Searching for alterntives paths...")
+        self.log("Searching for alterntives paths...")
             
         basesFound = 0
         fullVectorsFound = 0
         chances = 0
-        print("All nodes: ", len(self.graph.nodes()) )
+        linearDependency = 0
+        self.log("All nodes: "+str( len(self.graph.nodes()) ) )
         
+        nodes2dependentVectors = {}
         for i, n in enumerate(self.graph.nodes):
             if i % 200 == 0:
-                print(i)
+                self.log(str(i))
                 
             
             if not "operator" in self.graph.nodes[n]:
@@ -167,11 +169,11 @@ class GraphOptimizer(GraphParser):
                 continue
         
             chances += 1
-            rootSubformSet = set(self.graph.nodes[n]["form"].subforms.keys())
+            rootSubform = self.graph.nodes[n]["form"].subforms
             forbiddenNodes = set( self.graph.predecessors(n) ) | self.getAllSuccessors(n)
             forbiddenNodes.add(n)
             
-            fullVectors, potentialBase = self.findSubsetForms(rootSubformSet, forbiddenNodes )
+            fullVectors, potentialBase, linearDependent = self.findSubsetForms(rootSubform, forbiddenNodes )
             
             if potentialBase or fullVectors:
                 basesFound += 1
@@ -179,10 +181,65 @@ class GraphOptimizer(GraphParser):
             if fullVectors:
                 fullVectorsFound += 1
                 
+            if linearDependent:
+                nodes2dependentVectors[n] = linearDependent
+                linearDependency += 1
+                # break
             
                 
-        print("Found potential bases for ", basesFound , " of ", chances)
-        print("Found full vectors bases for ", fullVectorsFound , " of ", chances) 
+        self.log("Found potential bases for "+ str(basesFound) + " of " + str(chances))
+        self.log("Found full vectors bases for " + str(fullVectorsFound) + " of " + str(chances)) 
+        self.log("Linear dependency for " + str(linearDependency) + " of " + str(chances))
+        self.useLinearDependency( nodes2dependentVectors )
+
+    def useLinearDependency( self, node2linearDependent ):
+        for node in node2linearDependent:
+            replacements = node2linearDependent[node]
+
+            replacement, coefficient, isInteger = self.findBestReplacement(node, replacements)
+
+            if not replacement:
+                continue
+
+            if isInteger:
+                multNodeName = str(coefficient)
+                if not multNodeName in self.graph.nodes:
+                    self.graph.add_node(multNodeName, variable = multNodeName, kind = "integer", level = 0)
+                    self.createIntegerForm(multNodeName, coefficient)
+
+            else:
+                multNodeName = coefficient
+                if not multNodeName in self.graph.nodes:
+                    self.graph.add_node(multNodeName, variable = multNodeName, kind = "input", level = 0)
+                    self.createPrimeForm(multNodeName)
+
+            newNode = self.insertNewOperator( "*", [ replacement, multNodeName ] , "infix",forceNewNode = True )
+            self.replaceNode( node, newNode )
+
+    def findBestReplacement(self, node, replacements):
+        isInteger = False
+
+        subKey = list(self.graph.nodes[node]["form"].subforms.keys())[0]
+        subCoeff = self.graph.nodes[node]["form"].subforms[subKey]
+        bestRepl = None
+        coeff = None
+
+        for rep in replacements:
+            if not rep in self.graph.nodes:
+                continue
+
+            candidateCoeff = self.graph.nodes[rep]["form"].subforms[subKey]
+
+            if subCoeff % candidateCoeff == 0:
+                isInteger = True
+                bestRepl = rep
+                coeff = subCoeff // candidateCoeff
+                break
+
+            bestRepl = rep
+            coeff = str(subCoeff)+"./"+str(candidateCoeff) + "."
+
+        return bestRepl, coeff, isInteger
             
     def getAllSuccessors(self, node):
         queue = set(self.graph.successors(node))
@@ -196,28 +253,61 @@ class GraphOptimizer(GraphParser):
             queue |= newSuccessors
             
         return allSuccessors
+
+    def CouchySchwarzTest(self, subforms1, subforms2, subforms1norm = -1 ):
+        if subforms1norm < 0:
+            subforms1norm = self.subformInnerProduct( subforms1, subforms1 )
+
+        subforms2norm = self.subformInnerProduct(subforms2, subforms2)
+
+        innerProd = self.subformInnerProduct(subforms1, subforms2)
+
+        if innerProd*innerProd == subforms1norm*subforms2norm:
+            return True
+
+        return False
+
+    def subformInnerProduct(self, subforms1, subforms2):
+        innerProd = 0
+        keys = set(subforms1.keys()) & set(subforms2.keys())
+
+        for key in keys:
+            innerProd += subforms1[key] * subforms2[key]
+
+        return innerProd 
         
-            
-    def findSubsetForms(self, subformSet2search, notAcceptableNodes ):
+    def findSubsetForms(self, subform2search, notAcceptableNodes ):
         perfectMatch = []
         similarNodes = []
         perfectMatch = False
         allCoords = set([])
-        
+        subform2searchNorm = self.subformInnerProduct(subform2search, subform2search)
+        subformSet2search = set( subform2search.keys() )
+        linerDependentVectors = []
+
+
         for node in self.graph.nodes:
             if node in notAcceptableNodes:
                 continue
             
-            subformSet = set(self.graph.nodes[node]["form"].subforms.keys())
+            subform = self.graph.nodes[node]["form"].subforms
+            subformSet = set(subform.keys())
             if len( subformSet - subformSet2search ) == 0 :
-                
+                allCoords |= subformSet
                 similarNodes.append(node)
+            else:
+                continue
+
+            if self.CouchySchwarzTest( subform2search, subform,  subform2searchNorm):
+                perfectMatch = True
+                linerDependentVectors.append(node)
+                # break
         
             if len(subformSet2search) == len(allCoords):
                 perfectMatch = True
-                break
+                # break
         
-        return perfectMatch, similarNodes
+        return perfectMatch, similarNodes, linerDependentVectors
     
     def greedyScheme(self):
         self.actualCycles = 0
@@ -476,6 +566,23 @@ class GraphOptimizer(GraphParser):
                     
             self.graph.remove_node(node)
         
+    def replaceNode(self, node2remove, nodeReplacement):
+
+        for succ in self.graph.successors(node2remove):
+            edgeFold = self.graph[node2remove][succ]["fold"]
+
+            if succ in self.graph[nodeReplacement]:
+                self.graph[nodeReplacement][succ]["fold"] += edgeFold
+
+            else:
+                self.graph.add_edge(nodeReplacement, succ, fold = edgeFold)
+                
+            if "order" in self.graph[node2remove][succ]:
+                self.graph[nodeReplacement][succ]["order"] = self.graph[node2remove][succ]["order"]
+
+
+        self.graph.remove_node(node2remove)
+
             
     def histogramOfSuccessors(self):
         succesorsNoList = []
@@ -816,7 +923,7 @@ class GraphOptimizer(GraphParser):
         f2w.close()
         
     def findDeadEnds(self):
-        print("Searching for dead ends...")
+        self.log("Searching for dead ends...")
         deletedAtoms = 0
         seeds = []
         for node in self.graph.nodes:
@@ -838,7 +945,7 @@ class GraphOptimizer(GraphParser):
                 if successorsNo == 0 and self.graph.nodes[p]["kind"] != "output":
                     seeds.append(p)
                     
-        print("Deleted: ", deletedAtoms)
+        self.log("Deleted: "+ str(deletedAtoms))
 
     def analyseSubGraphOverlaping(self):
         totalNodesNo = len( list( self.graph.nodes ) )

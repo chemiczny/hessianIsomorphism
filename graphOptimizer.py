@@ -190,9 +190,11 @@ class GraphOptimizer(GraphParser):
         self.log("Found potential bases for "+ str(basesFound) + " of " + str(chances))
         self.log("Found full vectors bases for " + str(fullVectorsFound) + " of " + str(chances)) 
         self.log("Linear dependency for " + str(linearDependency) + " of " + str(chances))
-        self.useLinearDependency( nodes2dependentVectors )
+        node2dependentVectors = self.useLinearDependency( nodes2dependentVectors, onlyIntegers = True )
+        self.useLinearDependency( nodes2dependentVectors, onlyIntegers = False )
 
-    def useLinearDependency( self, node2linearDependent ):
+    def useLinearDependency( self, node2linearDependent, onlyIntegers = False ):
+        node2delete = []
         for node in node2linearDependent:
             replacements = node2linearDependent[node]
 
@@ -208,6 +210,9 @@ class GraphOptimizer(GraphParser):
                     self.createIntegerForm(multNodeName, coefficient)
 
             else:
+                if onlyIntegers:
+                    continue
+
                 multNodeName = coefficient
                 if not multNodeName in self.graph.nodes:
                     self.graph.add_node(multNodeName, variable = multNodeName, kind = "input", level = 0)
@@ -215,6 +220,12 @@ class GraphOptimizer(GraphParser):
 
             newNode = self.insertNewOperator( "*", [ replacement, multNodeName ] , "infix",forceNewNode = True )
             self.replaceNode( node, newNode )
+            node2delete.append(node)
+
+        for n in node2delete:
+            del node2linearDependent[n]
+
+        return node2linearDependent
 
     def findBestReplacement(self, node, replacements):
         isInteger = False

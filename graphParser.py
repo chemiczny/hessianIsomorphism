@@ -59,6 +59,7 @@ class GraphParser:
         self.debug = False
         
         self.forcePrimeLevel = 0
+        self.strongDivisionReduction = False
         
         if source and lastLine:
             self.read(source, lastLine)
@@ -499,10 +500,10 @@ class GraphParser:
             if key in self.key2uniqueOperatorNodes and not forceNewNode:
                 return self.key2uniqueOperatorNodes[key]
             
-#        elif operatorName == "/" and inputs[0] != "1" and level > self.forcePrimeLevel :
-#            devider = self.insertNewAssimetricOperator( "/", [ "1" , inputs[1] ], "infix" )
-#            return self.insertNewOperator( "*", [ inputs[0], devider ], "infix" )
-#            
+        elif operatorName == "/" and inputs[0] != "1" and level > self.forcePrimeLevel and self.strongDivisionReduction :
+            devider = self.insertNewAssimetricOperator( "/", [ "1" , inputs[1] ], "infix" )
+            return self.insertNewOperator( "*", [ inputs[0], devider ], "infix" )
+            
         else:
             simpleKey = "_".join(sorted(inputs)) + "_"+operatorName
             

@@ -152,6 +152,7 @@ class GraphOptimizer(GraphParser):
         fullVectorsFound = 0
         chances = 0
         linearDependency = 0
+        integerNodes = self.getAllIntegerNodes()
         self.log("All nodes: "+str( len(self.graph.nodes()) ) )
         
         nodes2dependentVectors = {}
@@ -173,7 +174,12 @@ class GraphOptimizer(GraphParser):
             forbiddenNodes = set( self.graph.predecessors(n) ) | self.getAllSuccessors(n)
             forbiddenNodes.add(n)
             
-            fullVectors, potentialBase, linearDependent = self.findSubsetForms(rootSubform, forbiddenNodes )
+            primePredecessors = self.getPrimePredecessors(n)
+            primePredecessors |= integerNodes
+#            possibleNodes = self.getAllSuccessorsIt(primePredecessors)
+            possibleNodes = self.getAllPureSuccessors(primePredecessors)
+            
+            fullVectors, potentialBase, linearDependent = self.findSubsetForms(rootSubform, forbiddenNodes, possibleNodes )
             
             if potentialBase or fullVectors:
                 basesFound += 1
@@ -190,7 +196,7 @@ class GraphOptimizer(GraphParser):
         self.log("Found potential bases for "+ str(basesFound) + " of " + str(chances))
         self.log("Found full vectors bases for " + str(fullVectorsFound) + " of " + str(chances)) 
         self.log("Linear dependency for " + str(linearDependency) + " of " + str(chances))
-        node2dependentVectors = self.useLinearDependency( nodes2dependentVectors, onlyIntegers = True )
+        nodes2dependentVectors = self.useLinearDependency( nodes2dependentVectors, onlyIntegers = True )
         self.useLinearDependency( nodes2dependentVectors, onlyIntegers = False )
 
     def useLinearDependency( self, node2linearDependent, onlyIntegers = False ):
@@ -226,6 +232,15 @@ class GraphOptimizer(GraphParser):
             del node2linearDependent[n]
 
         return node2linearDependent
+
+    def getAllIntegerNodes(self):
+        integerNodes = set([])
+        
+        for node in self.graph.nodes:
+            if self.graph.nodes[node]["kind"] == "integer":
+                integerNodes.add(node)
+                
+        return integerNodes
 
     def findBestReplacement(self, node, replacements):
         isInteger = False
@@ -264,6 +279,51 @@ class GraphOptimizer(GraphParser):
             queue |= newSuccessors
             
         return allSuccessors
+    
+    def getAllSuccessorsIt(self, nodes):
+        queue = set(nodes)
+        for node in nodes:
+            queue |= set(self.graph.successors(node))
+        allSuccessors = deepcopy(queue)
+        
+        while queue:
+            newNode = queue.pop()
+            
+            newSuccessors = set(self.graph.successors(newNode))
+            allSuccessors |= newSuccessors
+            queue |= newSuccessors
+            
+        return allSuccessors
+    
+    def getAllPureSuccessors(self, nodes):
+        queue = set(nodes)
+        
+        allSuccessors = set([])
+        
+        while queue:
+            newNode = queue.pop()
+            allSuccessors.add(newNode)
+            
+            newSuccessors = set(self.graph.successors(newNode))
+            for s in newSuccessors:
+                sPred = set(self.graph.predecessors(s))
+                
+                if allSuccessors >= sPred:
+                    queue.add(s)
+            
+        return allSuccessors
+    
+    def getPrimePredecessors(self, node):
+        form = self.graph.nodes[node]["form"]
+        allPrimes = set({})
+        for subKey in form.subforms:
+            allPrimes |= set(self.primeFactorization(subKey).keys())
+            
+        primeNodes = set([])
+        for p in allPrimes:
+            primeNodes.add( self.subformFactory.subformId2node[p] )
+            
+        return primeNodes
 
     def CouchySchwarzTest(self, subforms1, subforms2, subforms1norm = -1 ):
         if subforms1norm < 0:
@@ -287,7 +347,7 @@ class GraphOptimizer(GraphParser):
 
         return innerProd 
         
-    def findSubsetForms(self, subform2search, notAcceptableNodes ):
+    def findSubsetForms(self, subform2search, notAcceptableNodes, possibleNodes = None ):
         perfectMatch = []
         similarNodes = []
         perfectMatch = False
@@ -296,14 +356,16 @@ class GraphOptimizer(GraphParser):
         subformSet2search = set( subform2search.keys() )
         linerDependentVectors = []
 
+        if possibleNodes == None:
+            possibleNodes = set(self.graph.nodes)
 
-        for node in self.graph.nodes:
-            if node in notAcceptableNodes:
-                continue
+        acceptableNodes = possibleNodes - notAcceptableNodes
+        for node in acceptableNodes:
             
             subform = self.graph.nodes[node]["form"].subforms
             subformSet = set(subform.keys())
-            if len( subformSet - subformSet2search ) == 0 :
+            
+            if subformSet2search >= subformSet :
                 allCoords |= subformSet
                 similarNodes.append(node)
             else:

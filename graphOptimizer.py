@@ -156,6 +156,8 @@ class GraphOptimizer(GraphParser):
         self.log("All nodes: "+str( len(self.graph.nodes()) ) )
         
         nodes2dependentVectors = {}
+        primeKey2possibleNodes = {}
+        
         for i, n in enumerate(self.graph.nodes):
             if i % 200 == 0:
                 self.log(str(i))
@@ -174,10 +176,13 @@ class GraphOptimizer(GraphParser):
             forbiddenNodes = set( self.graph.predecessors(n) ) | self.getAllSuccessors(n)
             forbiddenNodes.add(n)
             
-            primePredecessors = self.getPrimePredecessors(n)
-            primePredecessors |= integerNodes
-#            possibleNodes = self.getAllSuccessorsIt(primePredecessors)
-            possibleNodes = self.getAllPureSuccessors(primePredecessors)
+            primePredecessors, primeKey = self.getPrimePredecessors(n)
+            
+            if primeKey in primeKey2possibleNodes:
+                possibleNodes = primeKey2possibleNodes[primeKey]
+            else:
+                primePredecessors |= integerNodes
+                possibleNodes = self.getAllPureSuccessors(primePredecessors)
             
             fullVectors, potentialBase, linearDependent = self.findSubsetForms(rootSubform, forbiddenNodes, possibleNodes )
             
@@ -320,10 +325,12 @@ class GraphOptimizer(GraphParser):
             allPrimes |= set(self.primeFactorization(subKey).keys())
             
         primeNodes = set([])
+        primeKey = 1
         for p in allPrimes:
             primeNodes.add( self.subformFactory.subformId2node[p] )
+            primeKey *= p
             
-        return primeNodes
+        return primeNodes, primeKey
 
     def CouchySchwarzTest(self, subforms1, subforms2, subforms1norm = -1 ):
         if subforms1norm < 0:

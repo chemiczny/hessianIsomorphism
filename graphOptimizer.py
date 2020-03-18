@@ -183,6 +183,7 @@ class GraphOptimizer(GraphParser):
             else:
                 primePredecessors |= integerNodes
                 possibleNodes = self.getAllPureSuccessors(primePredecessors)
+                primeKey2possibleNodes[primeKey ] = possibleNodes
             
             fullVectors, potentialBase, linearDependent = self.findSubsetForms(rootSubform, forbiddenNodes, possibleNodes )
             
@@ -395,7 +396,7 @@ class GraphOptimizer(GraphParser):
         nodes2remove = set([])
         operatorsOptim = set( [ "+", "-", "*" ] )
         toStay = 0
-        
+        self.log("Greedy scheme: start")
         for node in self.graph.nodes:
             
             if self.graph.nodes[node]["kind"] in  [ "input", "integer" ]:
@@ -423,9 +424,9 @@ class GraphOptimizer(GraphParser):
                 
                 
                 
-        print("to remove: ", len(nodes2remove))
-        print("to expand: ", len(nodes2optimize))
-        print("to stay: ", toStay)
+        self.log("to remove: " + str( len(nodes2remove)) )
+        self.log("to expand: " + str( len(nodes2optimize)) )
+        self.log("to stay: "+ str(toStay))
         
         for node in nodes2remove:
             canonicalKey = self.graph.nodes[node]["canonicalKey"]
@@ -439,12 +440,21 @@ class GraphOptimizer(GraphParser):
             for p in predecessors:
                 self.graph.remove_edge(p, n)
         
-        for n in nodes2optimize:
+        expandNo = len(nodes2optimize)
+        progressStep = int(0.05 * expandNo)
+        nextLog = 0
+        for i,n in enumerate(nodes2optimize):
             if self.debug:
                 print(40*"#")
                 print("GREEDY EXPAND FOR NODE: ", n, self.graph.nodes[n]["variable"])
                 
+            if i >= nextLog:
+                self.log(str(i) + " of " + str(expandNo))
+                nextLog += progressStep
+
             self.greedyExpand(n)
+
+        self.log("Greedy scheme: stop")
         
     def greedyExpand(self, node, atomDistribution = None):    
         if self.debug:

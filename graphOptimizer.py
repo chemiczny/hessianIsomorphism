@@ -8,31 +8,19 @@ Created on Mon May 20 10:50:32 2019
 from graphParser import GraphParser
 from time import time
 import networkx as nx
-import matplotlib.pyplot as plt
 from copy import deepcopy
+import matplotlib.pyplot as plt
 #from math import ceil, sqrt
 from collections import defaultdict
 from canonical import CanonicalForm
+from graphAnalyser import GraphAnalyser
+from nodeOptimizer import NodeOptimizer
 
-class GraphOptimizer(GraphParser):
+from formManipulation import primeFactorization, generateSubKey2AtomDist, CouchySchwarzTest
+
+class GraphOptimizer(GraphParser, GraphAnalyser):
     def __init__(self, source = None, lastLine = None):
         GraphParser.__init__(self, source, lastLine)
-    
-    def primeFactorization(self, number):
-        factors = defaultdict(int)
-        
-        temp = number
-        primeIndex = 0
-        while temp != 1:
-            prime = self.subformFactory.primes[primeIndex]
-            
-            while temp % prime == 0:
-                factors[prime] += 1
-                temp = temp//prime
-                
-            primeIndex += 1
-        
-        return factors
     
     def findClusterSubgraphs(self, acceptableOperators = [ "+", "-", "*", None ], acceptableKinds = [ "middle" , "integer" ], minimumSize = 2, minimumCost = 0 ):
         sortedNodes = list(reversed(list( nx.topological_sort(self.graph) )))
@@ -323,7 +311,7 @@ class GraphOptimizer(GraphParser):
         form = self.graph.nodes[node]["form"]
         allPrimes = set({})
         for subKey in form.subforms:
-            allPrimes |= set(self.primeFactorization(subKey).keys())
+            allPrimes |= set(primeFactorization(subKey, self.subformFactory.primes ).keys())
             
         primeNodes = set([])
         primeKey = 1
@@ -332,28 +320,6 @@ class GraphOptimizer(GraphParser):
             primeKey *= p
             
         return primeNodes, primeKey
-
-    def CouchySchwarzTest(self, subforms1, subforms2, subforms1norm = -1 ):
-        if subforms1norm < 0:
-            subforms1norm = self.subformInnerProduct( subforms1, subforms1 )
-
-        subforms2norm = self.subformInnerProduct(subforms2, subforms2)
-
-        innerProd = self.subformInnerProduct(subforms1, subforms2)
-
-        if innerProd*innerProd == subforms1norm*subforms2norm:
-            return True
-
-        return False
-
-    def subformInnerProduct(self, subforms1, subforms2):
-        innerProd = 0
-        keys = set(subforms1.keys()) & set(subforms2.keys())
-
-        for key in keys:
-            innerProd += subforms1[key] * subforms2[key]
-
-        return innerProd 
         
     def findSubsetForms(self, subform2search, notAcceptableNodes, possibleNodes = None ):
         perfectMatch = []
@@ -379,7 +345,7 @@ class GraphOptimizer(GraphParser):
             else:
                 continue
 
-            if self.CouchySchwarzTest( subform2search, subform,  subform2searchNorm):
+            if CouchySchwarzTest( subform2search, subform,  subform2searchNorm):
                 perfectMatch = True
                 linerDependentVectors.append(node)
                 # break
@@ -390,13 +356,13 @@ class GraphOptimizer(GraphParser):
         
         return perfectMatch, similarNodes, linerDependentVectors
     
-    def greedyScheme(self):
+    def prepareToExpandOutputNodes(self):
         self.actualCycles = 0
         nodes2optimize = set([])
         nodes2remove = set([])
         operatorsOptim = set( [ "+", "-", "*" ] )
         toStay = 0
-        self.log("Greedy scheme: start")
+        
         for node in self.graph.nodes:
             
             if self.graph.nodes[node]["kind"] in  [ "input", "integer" ]:
@@ -439,6 +405,12 @@ class GraphOptimizer(GraphParser):
             
             for p in predecessors:
                 self.graph.remove_edge(p, n)
+                
+        return nodes2optimize
+    
+    def greedyScheme(self):
+        self.log("Greedy scheme: start")
+        nodes2optimize = self.prepareToExpandOutputNodes()
         
         expandNo = len(nodes2optimize)
         progressStep = int(0.05 * expandNo)
@@ -456,19 +428,30 @@ class GraphOptimizer(GraphParser):
 
         self.log("Greedy scheme: stop")
         
-    def greedyExpand(self, node, atomDistribution = None):    
-        if self.debug:
-            print("######################")
-                  
-        form = self.graph.nodes[node]["form"]
-        subformKey2atomDistribution = {}
-        atomsOccurence = defaultdict(int)
+    def greedySchemeSum(self):
+        self.log("Greedy scheme atom sum: start")
+        nodes2optimize = self.prepareToExpandOutputNodes()
         
-        if atomDistribution:
-            subformKey2atomDistribution = atomDistribution
-        else:
-            for subKey in form.subforms:
-                subformKey2atomDistribution[subKey] = self.primeFactorization(subKey)
+        expandNo = len(nodes2optimize)
+        progressStep = int(0.05 * expandNo)
+        nextLog = 0
+        for i,n in enumerate(nodes2optimize):
+            if self.debug:
+                print(40*"#")
+                print("GREEDY EXPAND FOR NODE: ", n, self.graph.nodes[n]["variable"])
+                
+            if i >= nextLog:
+                self.log(str(i) + " of " + str(expandNo))
+                nextLog += progressStep
+
+            self.greedyExpandSum(n)
+
+        self.log("Greedy scheme atom sum: stop")
+        
+
+                
+    def getMostCommonAtom(self, node, form, subformKey2atomDistribution,  atomDistribution = None):
+        atomsOccurence = defaultdict(int)
         
         for subKey in form.subforms:
             for atom in subformKey2atomDistribution[subKey]:
@@ -523,16 +506,11 @@ class GraphOptimizer(GraphParser):
                 return
 
         if not atomsOccurence:
-            return
+            return None
             
-        mostCommonAtom =  sorted(atomsOccurence.items(), key=lambda item: item[1])[-1][0]
-        if self.debug:
-            print("ilosc cubow: ",len(form.subforms))
-            print("postac cubow: ",form.subforms)
-            print("wystepowanie atomow",atomsOccurence)
-            print("wybrany dzielnik", mostCommonAtom)
+        return sorted(atomsOccurence.items(), key=lambda item: item[1])[-1][0]
         
-        
+    def devideFormByAtom(self, node, form, mostCommonAtom, subformKey2atomDistribution):
         devidedSubforms = {}
         devidedAtomDistribution = {}
         restSubforms = {}
@@ -571,7 +549,34 @@ class GraphOptimizer(GraphParser):
         
         devidedForm = CanonicalForm()
         devidedForm.subforms = devidedSubforms
+        
+        
+        
+        quotientForm = CanonicalForm()
+        quotientForm.subforms = quotientSubforms
+        
+        return devidedForm, devidedAtomDistribution, quotientForm, quotientAtomDistribution, restSubforms, restAtomDistribution
+    
+    def greedyExpand(self, node, atomDistribution = None):    
+        if self.debug:
+            print("######################")
+                  
+        form = self.graph.nodes[node]["form"]
+        subformKey2atomDistribution = generateSubKey2AtomDist(form, self.subformFactory.primes, atomDistribution)
+        mostCommonAtom = self.getMostCommonAtom(node, form, subformKey2atomDistribution, atomDistribution)
+        
+        if mostCommonAtom == None:
+            return
+        
+#        if self.debug:
+#            print("ilosc cubow: ",len(form.subforms))
+#            print("postac cubow: ",form.subforms)
+#            print("wystepowanie atomow",atomsOccurence)
+#            print("wybrany dzielnik", mostCommonAtom)
+        
         dividerAtomNode = self.subformFactory.subformId2node[mostCommonAtom]
+        devidedForm, devidedAtomDistribution, quotientForm, quotientAtomDistribution, restSubforms, restAtomDistribution = self.devideFormByAtom( node, form, mostCommonAtom, subformKey2atomDistribution)
+
         
         if not "kind" in self.graph.nodes[dividerAtomNode]:
             raise Exception( "Devider atom not found in graph!!!" )
@@ -601,14 +606,87 @@ class GraphOptimizer(GraphParser):
             restNode, presentInGraph = self.insertNewOperatorBottomUp("unkRest", node, restForm)
             if not presentInGraph:
                 self.greedyExpand(restNode, restAtomDistribution)
-            
-            quotientForm = CanonicalForm()
-            quotientForm.subforms = quotientSubforms
 
             quotientNode, presentInGraph = self.insertNewOperatorBottomUp("*", node, quotientForm )
             if not presentInGraph:
                 self.greedyExpand( quotientNode, quotientAtomDistribution )
             
+    
+    def checkForCycles(self, message, form2print = None):
+        cyclesList = list(nx.simple_cycles(self.graph))
+        
+        if cyclesList:
+            print("Cykl pojawił sie po")
+            print(message)
+            if form2print:
+                print("po dodaniu wierzcholka dla formy:")
+                print(form2print.subforms)
+            plt.figure()
+            graph = nx.subgraph(self.graph, cyclesList[0])
+            layout = nx.spring_layout(graph)
+            nx.draw_networkx(graph, layout)
+            raise Exception("cykl kurwa")
+        
+    
+    def greedyExpandSum(self, node):
+        form = self.graph.nodes[node]["form"]
+        
+        if len(form.subforms) == 1:
+            self.greedyExpand(node)
+            self.checkForCycles("stary greedy expand")
+            return
+        
+        nodeOptimizer = NodeOptimizer(form, self.scrLog)
+        quotientForm, dividerForm, divisibleForm, restForm  = nodeOptimizer.optimize()
+        
+        for form in [ quotientForm, dividerForm, divisibleForm, restForm  ]:
+            algebraicOne = True
+            for subKey in form.subforms:
+                if subKey != 1:
+                    algebraicOne = False
+                    break
+                
+                if form.subforms[subKey] != 1:
+                    algebraicOne = False
+                    break
+                
+            if algebraicOne:
+                raise Exception("Algebraic one detected!")
+        
+        if restForm.subforms:
+            self.graph.nodes[node]["operator"] = "+"
+            restNode, presentInGraph = self.insertNewOperatorBottomUp("unkRest", node, restForm)
+            self.checkForCycles("dodanie reszty")
+            if not presentInGraph:
+                self.greedyExpandSum(restNode)
+                
+            divisibleNode, presentInGraph = self.insertNewOperatorBottomUp("*", node, divisibleForm )
+            self.checkForCycles("dodanie podzielnego wielomianu")
+            if not presentInGraph:
+                quotientNode, quotientPresentInGraph = self.insertNewOperatorBottomUp("unkRest", divisibleNode, quotientForm )
+                self.checkForCycles("kurwa 1")
+                
+                if not quotientPresentInGraph:
+                    self.greedyExpandSum(quotientNode)
+                    
+                dividerNode, dividerPresentInGraph = self.insertNewOperatorBottomUp("unkRest", divisibleNode, dividerForm )
+                self.checkForCycles("kurwa 2")
+                if not dividerPresentInGraph:
+                    self.greedyExpandSum(dividerNode)
+                
+        else:
+            self.graph.nodes[node]["operator"] = "*"
+            
+            quotientNode, quotientPresentInGraph = self.insertNewOperatorBottomUp("unkNoRest", node, quotientForm)
+            self.checkForCycles("kurwa 3")
+            if not quotientPresentInGraph:
+                self.greedyExpandSum(quotientNode)
+                
+            dividerNode, dividerPresentInGraph = self.insertNewOperatorBottomUp("unkNoRest", node, dividerForm )
+            self.checkForCycles("kurwa 4", dividerForm)
+            
+            if not dividerPresentInGraph:
+                self.greedyExpandSum(dividerNode)
     
     def findClusters(self):
         self.log("Searching for cluster start...")
@@ -672,79 +750,6 @@ class GraphOptimizer(GraphParser):
 
 
         self.graph.remove_node(node2remove)
-
-            
-    def histogramOfSuccessors(self):
-        succesorsNoList = []
-        
-        for node in self.graph.nodes:
-            succesorsNoList.append( len(list(self.graph.successors( node))))
-            
-        n, bins, patches = plt.hist(succesorsNoList, 50, density=True, facecolor='g', alpha=0.75)
-
-
-        plt.xlabel('SuccesorsNo')
-        plt.ylabel('Probability')
-        plt.title('Histogram of succesors')
-        plt.grid(True)
-        plt.show()
-        
-    def histogramOfLevels(self, operator):
-        levelsList = []
-#        outputLevelsFile = open("outputLevels.log", 'w')
-        
-        for node in self.graph.nodes:
-            if "operator" in self.graph.nodes[node]:
-                if self.graph.nodes[node]["operator"] == operator:
-                    levelsList.append( self.graph.nodes[node]["level"])
-            
-#            if self.graph.nodes[node]["kind"] == "output":
-#                outputLevelsFile.write(  self.graph.nodes[node]["variable"] + " ; " +str( self.graph.nodes[node]["level"] )+"\n" )
-            
-            
-#        outputLevelsFile.close()
-        plt.figure()
-        n, bins, patches = plt.hist(levelsList, 150, density=False, facecolor='g', alpha=0.75)
-
-
-        plt.xlabel('Level')
-        plt.ylabel('Probability')
-        plt.title('Histogram of levels for operator '+operator)
-        plt.grid(True)
-        plt.show()
-        
-    def histogrameOfdevideInputs(self):
-        levelsList = []
-        uniqueDeviders= set([])
-        devidesNo = 0
-        for node in self.graph.nodes:
-            if "operator" in self.graph.nodes[node]:
-                if self.graph.nodes[node]["operator"] == "/":
-                    devidesNo += 1
-                    pred = list(self.graph.predecessors(node))
-                    order1 = self.graph[pred[0]][node]["order"]
-                    order2 = self.graph[pred[1]][node]["order"]
-                    
-                    divider = None
-                    if order1 > order2:
-                        divider = pred[0]
-                    else:
-                        divider = pred[1]
-                    
-                    uniqueDeviders.add(divider)
-                    levelsList.append(  self.graph.nodes[divider]["level"]   )
-            
-        print("Devides no: ", devidesNo)
-        print("Number of unique deviders: ", len(uniqueDeviders))
-        plt.figure()
-        n, bins, patches = plt.hist(levelsList, 150, density=False, facecolor='g', alpha=0.75)
-
-
-        plt.xlabel('Level')
-        plt.ylabel('Probability')
-        plt.title('Histogram of levels for operator ')
-        plt.grid(True)
-        plt.show()
             
     def simplifyBrackets(self):
         self.log("Simplifying brackets start...")
@@ -992,25 +997,7 @@ class GraphOptimizer(GraphParser):
         print("Zjebane przez nastepcw: ", fuckedBySuccessors)
         print("Total wtf: ", totalWTF)
         
-    def dumplOutputCanonicalForm(self, file2write):
-        f2w = open(file2write, 'w')
-        
-        for key in self.key2uniqueOperatorNodes:
-            node = self.key2uniqueOperatorNodes[key]
-            kind = self.graph.nodes[node]["kind"]
-            if kind == "output" and self.graph.nodes[node]["operator"] != "/":
-#                f2w.write(self.graph.nodes[node]["variable"])
-                f2w.write("\n")
-                f2w.write(key)
-                f2w.write("\n")
-            elif kind != "input":
-                for succ in self.graph.successors(node):
-                    if self.graph.nodes[succ]["operator"] == "/":
-                        f2w.write(key)
-                        f2w.write("\n")
-                        break
-        
-        f2w.close()
+
         
     def findDeadEnds(self):
         self.log("Searching for dead ends...")
@@ -1036,94 +1023,6 @@ class GraphOptimizer(GraphParser):
                     seeds.append(p)
                     
         self.log("Deleted: "+ str(deletedAtoms))
-
-    def analyseSubGraphOverlaping(self):
-        totalNodesNo = len( list( self.graph.nodes ) )
-        
-        report = open("subgraphReport.dat", 'w')
-        output2nodeSet = {}
-        
-        for outputName in self.outputs2nodes:
-            outputNode = self.outputs2nodes[outputName]
-            
-            output2nodeSet[outputName] = self.getSubNodes(outputNode) 
-            subNodesNo = len( output2nodeSet[outputName] )
-            percentage = float(subNodesNo)*100/totalNodesNo
-            
-            report.write( outputName +";"+  str(subNodesNo) + ";" + str(totalNodesNo) + ";" + str( percentage )+"\n"  )
-            
-            
-        report.close()
-        
-        report = open("subgraphOverlapping.dat", 'w')
-        
-        outputNames = list(output2nodeSet.keys())
-        
-        for index, key1 in enumerate(outputNames):
-            for key2 in outputNames[index+1:]:
-                overlapping = output2nodeSet[key1] & output2nodeSet[key2]
-                
-                percentage1 = float(len(overlapping))*100/len(output2nodeSet[key1] )
-                percentage2 = float(len(overlapping))*100/len(output2nodeSet[key2] )
-                
-                report.write( key1 +" ; "+ str(len(output2nodeSet[key1] )) + " ; "+
-                             str(percentage1) + " ; " + key2 +" ; "+ str(len(output2nodeSet[key2] )) + 
-                             " ; "+  str(percentage2) + " ; "+ str(max(percentage1, percentage2)) + "\n")
-                
-        
-        report.close()
-        
-        report = open("subgraphOperators.dat", 'w')
-        report.write("out name ; + ; * ; - ; / \n")
-        
-        for key in output2nodeSet:
-            nodeSet = output2nodeSet[key]
-            
-            plusNo = 0
-            multNo = 0
-            subNo = 0
-            devNo = 0
-            
-            for node in nodeSet:
-                if not "operator" in self.graph.nodes[node]:
-                    continue
-                
-                operator = self.graph.nodes[node]["operator"]
-                
-                if operator == "+":
-                    plusNo += 1
-                elif operator == "*":
-                    multNo += 1
-                elif operator == "-":
-                    subNo += 1
-                elif operator == "/":
-                    devNo += 1
-                    
-            report.write( key + " ; " + str(plusNo) + " ; " + str(multNo) + " ; " + str(subNo) + " ; " + str(devNo) + "\n" )
-        
-        
-        report.close()
-        
-    def analysePools(self):
-        graphTemp = deepcopy(self.graph)
-        
-        nodes2remove = []
-        for node in graphTemp.nodes:
-            if not "operator" in graphTemp.nodes[node]:
-                continue
-            
-            if graphTemp.nodes[node]["operator"] == "/":
-                nodes2remove.append(node)
-                
-        graphTemp.remove_nodes_from(nodes2remove)
-        
-        print("Niezalezne komponenty po usunieciu dzielenia:")
-        i = 0
-        for component in nx.weakly_connected_components(graphTemp):
-            print(len(component))
-            i += 1
-        
-        print("Liczba wszystkich niezależnych komponentow: ", i)
         
             
     def getSubNodes(self, node):

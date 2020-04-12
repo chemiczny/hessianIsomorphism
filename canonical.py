@@ -32,7 +32,6 @@ class CanonicalSubformFactory:
         
 
 def multiplyForms(form1, form2):
-    global __SubformFactory__
     newForm = CanonicalForm()
     
     for s1key in form1.subforms:

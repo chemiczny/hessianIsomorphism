@@ -388,8 +388,6 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
             else:
                 nodes2optimize.add(node)
                 
-                
-                
         self.log("to remove: " + str( len(nodes2remove)) )
         self.log("to expand: " + str( len(nodes2optimize)) )
         self.log("to stay: "+ str(toStay))
@@ -633,44 +631,61 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
         
         if len(form.subforms) == 1:
             self.greedyExpand(node)
-            self.checkForCycles("stary greedy expand")
+#            self.checkForCycles("stary greedy expand")
             return
         
         nodeOptimizer = NodeOptimizer(form, self.scrLog)
-        quotientForm, dividerForm, divisibleForm, restForm  = nodeOptimizer.optimize()
+#        quotientForm, dividerForm, divisibleForm, restForm  = nodeOptimizer.optimize()
+        optimizationResult = nodeOptimizer.optimize()
+        self.graph.nodes[node]["symmetric"] = True
+        self.graph.nodes[node]["fix"] = "infix"
         
-        for form in [ quotientForm, dividerForm, divisibleForm, restForm  ]:
-            algebraicOne = True
-            for subKey in form.subforms:
-                if subKey != 1:
-                    algebraicOne = False
-                    break
+        if not optimizationResult.dividingWasPossible:
+            self.graph.nodes[node]["operator"] = "+"
+            for relPrime in optimizationResult.relativelyPrimes:
+                newNode, presentInGraph = self.insertNewOperatorBottomUp("unkRest", node, relPrime)
+                if not presentInGraph:
+                    self.greedyExpand(newNode)
                 
-                if form.subforms[subKey] != 1:
-                    algebraicOne = False
-                    break
-                
-            if algebraicOne:
-                raise Exception("Algebraic one detected!")
+            return
+        
+        quotientForm = optimizationResult.quotientForm
+        dividerForm = optimizationResult.deviderForm
+        divisibleForm = optimizationResult.divisibleForm
+        restForm = optimizationResult.remainderForm
+        
+#        for form in [ quotientForm, dividerForm, divisibleForm, restForm  ]:
+#            algebraicOne = True
+#            for subKey in form.subforms:
+#                if subKey != 1:
+#                    algebraicOne = False
+#                    break
+#                
+#                if form.subforms[subKey] != 1:
+#                    algebraicOne = False
+#                    break
+#                
+#            if algebraicOne:
+#                raise Exception("Algebraic one detected!")
         
         if restForm.subforms:
             self.graph.nodes[node]["operator"] = "+"
             restNode, presentInGraph = self.insertNewOperatorBottomUp("unkRest", node, restForm)
-            self.checkForCycles("dodanie reszty")
+#            self.checkForCycles("dodanie reszty")
             if not presentInGraph:
                 self.greedyExpandSum(restNode)
                 
             divisibleNode, presentInGraph = self.insertNewOperatorBottomUp("*", node, divisibleForm )
-            self.checkForCycles("dodanie podzielnego wielomianu")
+#            self.checkForCycles("dodanie podzielnego wielomianu")
             if not presentInGraph:
                 quotientNode, quotientPresentInGraph = self.insertNewOperatorBottomUp("unkRest", divisibleNode, quotientForm )
-                self.checkForCycles("kurwa 1")
+#                self.checkForCycles("kurwa 1")
                 
                 if not quotientPresentInGraph:
                     self.greedyExpandSum(quotientNode)
                     
                 dividerNode, dividerPresentInGraph = self.insertNewOperatorBottomUp("unkRest", divisibleNode, dividerForm )
-                self.checkForCycles("kurwa 2")
+#                self.checkForCycles("kurwa 2")
                 if not dividerPresentInGraph:
                     self.greedyExpandSum(dividerNode)
                 
@@ -678,12 +693,12 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
             self.graph.nodes[node]["operator"] = "*"
             
             quotientNode, quotientPresentInGraph = self.insertNewOperatorBottomUp("unkNoRest", node, quotientForm)
-            self.checkForCycles("kurwa 3")
+#            self.checkForCycles("kurwa 3")
             if not quotientPresentInGraph:
                 self.greedyExpandSum(quotientNode)
                 
             dividerNode, dividerPresentInGraph = self.insertNewOperatorBottomUp("unkNoRest", node, dividerForm )
-            self.checkForCycles("kurwa 4", dividerForm)
+#            self.checkForCycles("kurwa 4", dividerForm)
             
             if not dividerPresentInGraph:
                 self.greedyExpandSum(dividerNode)

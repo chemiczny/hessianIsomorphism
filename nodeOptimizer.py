@@ -5,7 +5,9 @@ Created on Tue Mar 24 23:05:46 2020
 
 @author: michal
 """
-import numpy as np
+#import numpy as np
+import math
+from functools import reduce
 from canonical import CanonicalForm, multiplyForms, addForms, subtractForms
 #import networkx as nx
 
@@ -55,6 +57,14 @@ def fuseDivisiblePolynomials(pol1, pol2):
                 
     return DivisiblePolynomial(newGcdMatrix)
         
+class OptimizationResult:
+    def __init__(self):
+        self.dividingWasPossible = False
+        self.quotientForm = None
+        self.deviderForm = None
+        self.divisibleForm = None
+        self.remainderForm = None
+        self.relativelyPrimes = []
 
 class NodeOptimizer:
     def __init__(self, nodeForm, logName):
@@ -67,7 +77,7 @@ class NodeOptimizer:
         lf.close()
         
     """
-    return: quotient form, divider form, divisible form, remainder form
+    return: polynomial was devided, quotient form, divider form, divisible form, remainder form
     """
     def optimize(self):
         self.log("Optimizing node: start")
@@ -77,21 +87,21 @@ class NodeOptimizer:
             
 #            deviderForm = 
         
-        gcdCoeff = np.gcd.reduce( list(self.form.subforms.values()) )
-        gcdSubforms = np.gcd.reduce( list(self.form.subforms.keys()) )
+        gcdCoeff = reduce(math.gcd, list(self.form.subforms.values()) )
+        gcdSubforms = reduce( math.gcd, list(self.form.subforms.keys()) )
         
-        if gcdSubforms != 1:
-            self.log("Common divider for all subforms! "+ str(gcdSubforms))
-#            return
-        else:
-            self.log("There is no common divider for all subforms!")
+#        if gcdSubforms != 1:
+#            self.log("Common divider for all subforms! "+ str(gcdSubforms))
+##            return
+#        else:
+#            self.log("There is no common divider for all subforms!")
         
         gcdSubformsPairs =set([])
         subformKeys = list(self.form.subforms.keys())
         
         for i , subKey1 in enumerate(subformKeys):
             for subKey2 in subformKeys[i+1:]:
-                gcdSubformsPairs.add( np.gcd(subKey1, subKey2) )
+                gcdSubformsPairs.add( math.gcd(subKey1, subKey2) )
                 
         monoGCDdict = {}
         
@@ -110,12 +120,30 @@ class NodeOptimizer:
         processedPolynomials = []
         usedIntermediates = set([])
         queue = list(monoGCDdict.values())
-        gcdKeys = set(monoGCDdict.keys())
+        gcdKeys = frozenset(monoGCDdict.keys())
+        
+        unitPolynomial = frozenset([1])
+        
+        optimizationResult = OptimizationResult()
+        
+        if gcdKeys == unitPolynomial:
+            optimizationResult.dividingWasPossible = False
+            
+            for subKey in self.form.subforms:
+                newForm = CanonicalForm()
+                newForm.subforms[subKey] = self.form.subforms[subKey]
+                optimizationResult.relativelyPrimes.append(newForm)
+                
+            return optimizationResult
         
         while queue:
             newQueue = []
             for poly in queue:
                 monomials2fuse = gcdKeys - poly.gcdMonomials
+                
+                if poly.intermediateMonomials != unitPolynomial and poly.gcdMonomials != unitPolynomial:
+                    processedPolynomials.append(poly)
+                
                 for m in monomials2fuse:
                     newPoly = fuseDivisiblePolynomials(poly, monoGCDdict[m]  )
                     if newPoly != None:
@@ -123,23 +151,26 @@ class NodeOptimizer:
                             newQueue.append(newPoly)
                             usedIntermediates.add(newPoly.intermediateMonomials)
                             usedIntermediates.add(newPoly.gcdMonomials)
-                        
-            processedPolynomials += queue
+            
             queue = newQueue
             
         bestPolynomial = max(processedPolynomials, key = lambda item: item.profit)
         
         quotientForm, dividerForm, divisibleForm, restForm = self.findPolynomialCoeff(bestPolynomial, gcdCoeff)
-        return quotientForm, dividerForm, divisibleForm, restForm
         
+        optimizationResult.dividingWasPossible = True
+        optimizationResult.quotientForm = quotientForm
+        optimizationResult.deviderForm = dividerForm
+        optimizationResult.divisibleForm = divisibleForm
+        optimizationResult.remainderForm = restForm
 #        if len( bestPolynomial.resultsMonomials ) < len(bestPolynomial.gcdMonomials)*len(bestPolynomial.intermediateMonomials):
-#            print(15*"#")
-#            print("Found best solution from ", len(processedPolynomials))
-#            print("Highest profit: ", bestPolynomial.profit)
-#            print("Full form len: ", len(self.form.subforms))
-#            print("Best poly describes: ", len(bestPolynomial.resultsMonomials))
-#            print("Using polynomials of size: ", len(bestPolynomial.gcdMonomials), " and ",len(bestPolynomial.intermediateMonomials))
-        
+#        print(15*"#")
+#        print("Found best solution from ", len(processedPolynomials))
+#        print("Highest profit: ", bestPolynomial.profit)
+#        print("Full form len: ", len(self.form.subforms))
+#        print("Best poly describes: ", len(bestPolynomial.resultsMonomials))
+#        print("Using polynomials of size: ", len(bestPolynomial.gcdMonomials), " and ",len(bestPolynomial.intermediateMonomials))
+        return optimizationResult
 
         
     def findPolynomialCoeff(self, poly, gcdCoeff):
@@ -195,7 +226,7 @@ class NodeOptimizer:
         
         for intermediate in intermediate2uniqueResults:
             uniqueResCoeffs = [ self.form.subforms[subKey] for subKey in intermediate2uniqueResults[intermediate] ]
-            newCoeff = np.gcd.reduce(uniqueResCoeffs)
+            newCoeff = reduce(math.gcd, uniqueResCoeffs)
             quotientForm.subforms[intermediate] = newCoeff
             
         #okreslenie wartosci dzielnikow

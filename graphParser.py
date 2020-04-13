@@ -992,7 +992,7 @@ class GraphParser:
         order2predecessor = {}
         
         if not graph.nodes[node]["symmetric"]:
-            for pred in predecessors:
+            for pred in predecessors:                
                 order2predecessor[ graph[pred][node]["order"] ] = pred
                     
         predecessor2fold = {}

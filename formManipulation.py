@@ -6,6 +6,9 @@ Created on Sat Mar 28 12:23:44 2020
 @author: michal
 """
 from collections import defaultdict
+from canonical import CanonicalForm
+import math
+from functools import reduce
 
 def primeFactorization(number, primesList):
     factors = defaultdict(int)
@@ -54,3 +57,16 @@ def subformInnerProduct(subforms1, subforms2):
         innerProd += subforms1[key] * subforms2[key]
 
     return innerProd 
+
+def reduceForm(form):
+    gcd = reduce(math.gcd, list(form.subforms.keys()))
+    
+    if gcd == 1:
+        return form
+    
+    reducedForm = CanonicalForm()
+    
+    for subKey in form.subforms:
+        reducedForm.subforms[subKey] = form.subforms[subKey]//gcd
+        
+    return reducedForm

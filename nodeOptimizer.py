@@ -10,26 +10,70 @@ import math
 from functools import reduce
 from canonical import CanonicalForm, multiplyForms, addForms, subtractForms
 #import networkx as nx
+from formManipulation import reduceForm
 
 class DivisiblePolynomial:
-    def __init__(self, gcdMat):
+    def __init__(self, gcdMat, form, key2existingNodes, estimateProfit = False):
         self.gcdMatrix = gcdMat
         self.gcdMonomials = frozenset(self.gcdMatrix.keys())
         self.intermediateMonomials = frozenset([ ])
         self.resultsMonomials = set([])
+        self.form = form
+        self.key2node = key2existingNodes
         
         for gcdKey in self.gcdMatrix:
             self.intermediateMonomials |= set( self.gcdMatrix[gcdKey].keys() )
             self.resultsMonomials |= set(self.gcdMatrix[gcdKey].values())
         
-        self.profit = self.calcProfit()
+        if estimateProfit:
+            self.profit = self.calcProfit()
+        else:
+            self.profit = None
+            
+        self.reducedKeys = set([])
         
-    def calcProfit(self):
-        resultMonomialsNo = len(self.resultsMonomials)
-        gcdLen = len(self.gcdMatrix)
-        interLen = len(self.intermediateMonomials)
+    def calcProfit(self): 
+        quotientForm, dividerForm, divisibleForm, restForm = findPolynomialCoeff(self.form, self, 1)
+        restCost = len(restForm.subforms)
+        resultMonomialsCost = len(divisibleForm.subforms)
+        gcdCost = len(quotientForm.subforms)
+        interCost = len( dividerForm.subforms )
         
-        return 2*resultMonomialsNo - gcdLen - interLen 
+        if restForm.generateKey() in self.key2node:
+            restCost = 0
+            
+        if quotientForm.generateKey() in self.key2node:
+            gcdCost = 0
+            
+        if dividerForm.generateKey() in self.key2node:
+            interCost = 0
+            
+        if divisibleForm.generateKey() in self.key2node:
+            interCost = 0
+            gcdCost = 0
+        
+        return 2*resultMonomialsCost - gcdCost - interCost -2*restCost
+    
+    def generateReducedKeys(self):
+        self.reducedKeys = set([])
+        quotientForm, dividerForm, divisibleForm, restForm = findPolynomialCoeff(self.form, self, 1)
+        
+        if len(quotientForm.subforms) > 1:
+            quotientReduced = reduceForm(quotientForm)
+            self.reducedKeys.add(quotientForm.generateKey())
+            
+        if len(dividerForm.subforms) > 1:
+            dividerReduced = reduceForm(dividerForm)
+            self.reducedKeys.add(dividerForm.generateKey())
+            
+        if len(divisibleForm.subforms) > 1:
+            divisibleReduced = reduceForm(divisibleForm)
+            self.reducedKeys.add(divisibleForm.generateKey())
+        
+        if len(restForm.subforms) > 1:
+            restReduced = reduceForm(restForm)
+            self.reducedKeys.add(restForm.generateKey())
+        
     
 def fuseDivisiblePolynomials(pol1, pol2):
     commonIntermediates = pol1.intermediateMonomials & pol2.intermediateMonomials
@@ -55,7 +99,7 @@ def fuseDivisiblePolynomials(pol1, pol2):
                     
                 newGcdMatrix[gcd][intermediate] = pol2.gcdMatrix[gcd][intermediate]
                 
-    return DivisiblePolynomial(newGcdMatrix)
+    return DivisiblePolynomial(newGcdMatrix, pol1.form, pol1.key2node)
         
 class OptimizationResult:
     def __init__(self):
@@ -65,29 +109,33 @@ class OptimizationResult:
         self.divisibleForm = None
         self.remainderForm = None
         self.relativelyPrimes = []
+        self.gcdKeys = None
 
 class NodeOptimizer:
-    def __init__(self, nodeForm, logName):
+    def __init__(self, nodeForm, logName, key2existingNode):
         self.form = nodeForm
         self.logName = logName
+        self.key2existingNode = key2existingNode
+        self.potentialSolutions = []
         
     def log(self, logText):
         lf = open(self.logName, 'a')
         lf.write(logText+"\n")
         lf.close()
         
-    """
-    return: polynomial was devided, quotient form, divider form, divisible form, remainder form
-    """
-    def optimize(self):
+    def generateReducedKeys(self):
+        for sol in self.potentialSolutions:
+            sol.generateReducedKeys()
+        
+    def findPotentialSolutions(self):
         self.log("Optimizing node: start")
         
         if len(self.form.subforms) == 1:
-            return self.optimizeMonomialNode()
+            self.optimizeMonomialNode()
             
 #            deviderForm = 
         
-        gcdCoeff = reduce(math.gcd, list(self.form.subforms.values()) )
+        
         gcdSubforms = reduce( math.gcd, list(self.form.subforms.keys()) )
         
 #        if gcdSubforms != 1:
@@ -115,31 +163,19 @@ class NodeOptimizer:
                     
 #                    if subKey*subGcd != 
                     
-            monoGCDdict[subGcd] = DivisiblePolynomial(newRow) 
+            monoGCDdict[subGcd] = DivisiblePolynomial(newRow, self.form, self.key2existingNode) 
             
         processedPolynomials = []
         usedIntermediates = set([])
         queue = list(monoGCDdict.values())
-        gcdKeys = frozenset(monoGCDdict.keys())
+        self.gcdKeys = frozenset(monoGCDdict.keys())
         
         unitPolynomial = frozenset([1])
-        
-        optimizationResult = OptimizationResult()
-        
-        if gcdKeys == unitPolynomial:
-            optimizationResult.dividingWasPossible = False
-            
-            for subKey in self.form.subforms:
-                newForm = CanonicalForm()
-                newForm.subforms[subKey] = self.form.subforms[subKey]
-                optimizationResult.relativelyPrimes.append(newForm)
-                
-            return optimizationResult
         
         while queue:
             newQueue = []
             for poly in queue:
-                monomials2fuse = gcdKeys - poly.gcdMonomials
+                monomials2fuse = self.gcdKeys - poly.gcdMonomials
                 
                 if poly.intermediateMonomials != unitPolynomial and poly.gcdMonomials != unitPolynomial:
                     processedPolynomials.append(poly)
@@ -154,9 +190,32 @@ class NodeOptimizer:
             
             queue = newQueue
             
-        bestPolynomial = max(processedPolynomials, key = lambda item: item.profit)
+        self.potentialSolutions = processedPolynomials
         
-        quotientForm, dividerForm, divisibleForm, restForm = self.findPolynomialCoeff(bestPolynomial, gcdCoeff)
+    """
+    return: polynomial was devided, quotient form, divider form, divisible form, remainder form
+    """
+    def optimize(self):
+        self.findPotentialSolutions()
+        
+        unitPolynomial = frozenset([1])
+        
+        optimizationResult = OptimizationResult()
+        
+        if self.gcdKeys == unitPolynomial:
+            optimizationResult.dividingWasPossible = False
+            
+            for subKey in self.form.subforms:
+                newForm = CanonicalForm()
+                newForm.subforms[subKey] = self.form.subforms[subKey]
+                optimizationResult.relativelyPrimes.append(newForm)
+                
+            return optimizationResult
+        
+        bestPolynomial = max(self.potentialSolutions, key = lambda item: item.profit)
+        gcdCoeff = reduce(math.gcd, list(self.form.subforms.values()) )
+        
+        quotientForm, dividerForm, divisibleForm, restForm = findPolynomialCoeff(self.form, bestPolynomial, gcdCoeff)
         
         optimizationResult.dividingWasPossible = True
         optimizationResult.quotientForm = quotientForm
@@ -171,86 +230,88 @@ class NodeOptimizer:
 #        print("Best poly describes: ", len(bestPolynomial.resultsMonomials))
 #        print("Using polynomials of size: ", len(bestPolynomial.gcdMonomials), " and ",len(bestPolynomial.intermediateMonomials))
         return optimizationResult
-
+                    
+    def optimizeMonomialNode(self):
+        raise Exception("Not implemented!")
         
-    def findPolynomialCoeff(self, poly, gcdCoeff):
+def findPolynomialCoeff(form, poly, gcdCoeff):
 #        remainderForm = CanonicalForm()
-        #inicjalizacja wartosci
-        quotientForm = CanonicalForm()
-        dividerForm = CanonicalForm()
-        
-        if len(poly.intermediateMonomials) > len(poly.gcdMonomials):
-            reverseGcdMat = {}
-            
-            for gcdKey in poly.gcdMatrix:
-                for interKey in poly.gcdMatrix[gcdKey]:
-                    resKey = poly.gcdMatrix[gcdKey][interKey]
-                    
-                    if not interKey in reverseGcdMat:
-                        reverseGcdMat[interKey] = {}
-                     
-                    reverseGcdMat[interKey][gcdKey] = resKey
-                    
-            poly = DivisiblePolynomial(reverseGcdMat)
-                    
-        
-        for subKey in poly.gcdMonomials:
-            dividerForm.subforms[subKey] = None
-            
-        for subKey in poly.intermediateMonomials:
-            quotientForm.subforms[subKey] = None
-            
-        #znalezienie wynikow zaleznych tylko i wylacznie od pojedynczych intermediatow
-        intermediate2results = {}
-        
-        for dividerKey in poly.gcdMatrix:
-            for interKey in poly.gcdMatrix[dividerKey]:
-                if not interKey in intermediate2results:
-                    intermediate2results[interKey] = set([])
-                    
-                intermediate2results[interKey].add(poly.gcdMatrix[dividerKey][interKey])
+    #inicjalizacja wartosci
+    quotientForm = CanonicalForm()
+    dividerForm = CanonicalForm()
+    
+#    if len(poly.intermediateMonomials) > len(poly.gcdMonomials):
+#        reverseGcdMat = {}
+#        
+#        for gcdKey in poly.gcdMatrix:
+#            for interKey in poly.gcdMatrix[gcdKey]:
+#                resKey = poly.gcdMatrix[gcdKey][interKey]
+#                
+#                if not interKey in reverseGcdMat:
+#                    reverseGcdMat[interKey] = {}
+#                 
+#                reverseGcdMat[interKey][gcdKey] = resKey
+#                
+#        poly = DivisiblePolynomial(reverseGcdMat, form)
                 
-        intermediate2uniqueResults ={}
+    
+    for subKey in poly.gcdMonomials:
+        dividerForm.subforms[subKey] = None
         
-        for interKey in intermediate2results:
-            uniqueInters = intermediate2results[interKey]
-            otherInters = set(intermediate2results.keys())
-            otherInters.remove(interKey)
-            
-            for otherInter in otherInters:
-                uniqueInters -= intermediate2results[otherInter]
+    for subKey in poly.intermediateMonomials:
+        quotientForm.subforms[subKey] = None
+        
+    #znalezienie wynikow zaleznych tylko i wylacznie od pojedynczych intermediatow
+    intermediate2results = {}
+    
+    for dividerKey in poly.gcdMatrix:
+        for interKey in poly.gcdMatrix[dividerKey]:
+            if not interKey in intermediate2results:
+                intermediate2results[interKey] = set([])
                 
-            intermediate2uniqueResults[interKey] = uniqueInters
+            intermediate2results[interKey].add(poly.gcdMatrix[dividerKey][interKey])
             
-        #okreslenie wartosci intermediatow
+    intermediate2uniqueResults ={}
+    
+    for interKey in intermediate2results:
+        uniqueInters = intermediate2results[interKey]
+        otherInters = set(intermediate2results.keys())
+        otherInters.remove(interKey)
         
-        for intermediate in intermediate2uniqueResults:
-            uniqueResCoeffs = [ self.form.subforms[subKey] for subKey in intermediate2uniqueResults[intermediate] ]
+        for otherInter in otherInters:
+            uniqueInters -= intermediate2results[otherInter]
+            
+        intermediate2uniqueResults[interKey] = uniqueInters
+        
+    #okreslenie wartosci intermediatow
+    
+    for intermediate in intermediate2uniqueResults:
+        uniqueResCoeffs = [ form.subforms[subKey] for subKey in intermediate2uniqueResults[intermediate] ]
+#        print(uniqueResCoeffs)
+        newCoeff = 1
+        if uniqueResCoeffs:
             newCoeff = reduce(math.gcd, uniqueResCoeffs)
-            quotientForm.subforms[intermediate] = newCoeff
-            
-        #okreslenie wartosci dzielnikow
+        quotientForm.subforms[intermediate] = newCoeff
         
-        for gcdKey in poly.gcdMatrix:
-            for interKey in poly.gcdMatrix[gcdKey]:
-                resKey = poly.gcdMatrix[gcdKey][interKey]
-                if resKey in intermediate2uniqueResults[interKey]:
-                    dividerForm.subforms[gcdKey] = self.form.subforms[resKey]//quotientForm.subforms[interKey]
-            
-        divisibleForm = multiplyForms(quotientForm, dividerForm)
-        restForm = subtractForms(self.form, divisibleForm)
+    #okreslenie wartosci dzielnikow
+    
+    for gcdKey in poly.gcdMatrix:
+        for interKey in poly.gcdMatrix[gcdKey]:
+            resKey = poly.gcdMatrix[gcdKey][interKey]
+            if resKey in intermediate2uniqueResults[interKey]:
+                dividerForm.subforms[gcdKey] = form.subforms[resKey]//quotientForm.subforms[interKey]
         
-        testForm = addForms(restForm, divisibleForm)
-        if self.form.generateKey() != testForm.generateKey():
-            raise Exception("Simplyfied form is not identical to source form!")
-        
+    divisibleForm = multiplyForms(quotientForm, dividerForm)
+    restForm = subtractForms(form, divisibleForm)
+    
+#    testForm = addForms(restForm, divisibleForm)
+#    if form.generateKey() != testForm.generateKey():
+#        raise Exception("Simplyfied form is not identical to source form!")
+    #wiecej info
 #        print(15*"#")
 #        print("Full form len: ", len(self.form.subforms))
 #        print("Divisible describes: ", len(divisibleForm.subforms))
 #        print("By multipling: ", len(quotientForm.subforms), " and ", len(dividerForm.subforms))
 #        print("Rest size: ", len(restForm.subforms))
-            
-        return quotientForm, dividerForm, divisibleForm, restForm
-                    
-    def optimizeMonomialNode(self):
-        raise Exception("Not implemented!")
+        
+    return quotientForm, dividerForm, divisibleForm, restForm

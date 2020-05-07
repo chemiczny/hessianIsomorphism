@@ -15,12 +15,72 @@ from collections import defaultdict
 from canonical import CanonicalForm
 from graphAnalyser import GraphAnalyser
 from nodeOptimizer import NodeOptimizer
+from itertools import combinations
 
 from formManipulation import primeFactorization, generateSubKey2AtomDist, CouchySchwarzTest
+from potentialForms import PotentialFormAdd, PotentialFormMult, mergePotentialFormAdd
+
+def mergeNodeOptimizers(nodeOptimizer1, node1, nodeOptimizer2, node2):
+    potentialForms = []
+    
+    for sol1 in nodeOptimizer1.potentialSolutions:
+        for sol2 in nodeOptimizer2.potentialSolutions:
+            commonReducedKeys = sol1.reducedKeys & sol2.reducedKeys
+            
+            if not commonReducedKeys:
+                continue
+            
+            newPotentialForm = PotentialFormMult()
+            newPotentialForm.usedNodes.add(node1)
+            newPotentialForm.usedNodes.add(node2)
+            
+            newPotentialForm.node2polynomialDecomposition[node1] = sol1
+            newPotentialForm.node2polynomialDecomposition[node2] = sol2
+            
+            newPotentialForm.allReducedKeys = sol1.reducedKeys | sol2.reducedKeys
+            
+            potentialForms.append(newPotentialForm)
+        
+    return potentialForms
+
+def mergeNodeOptimizerWithPotentialFormMult(nodeOptimizer, node, potentialFormMult):
+    if node in potentialFormMult.usedNodes:
+        return
+    
+    potentialForms= []
+    
+    for sol in nodeOptimizer.potentialSolutions:
+        commonReducedKeys = sol.reducedKeys & potentialFormMult.allReducedKeys
+        
+        if not commonReducedKeys:
+            continue
+        
+        newPotentialForm = PotentialFormMult()
+        
+        newPotentialForm.usedNodes = potentialFormMult.usedNodes | set([node])
+        newPotentialForm.allReducedKeys = sol.reducedKeys | potentialFormMult.allReducedKeys
+        
+        newPotentialForm.node2polynomialDecomposition[node] = sol
+        for node in potentialFormMult.node2polynomialDecomposition:
+            newPotentialForm.node2polynomialDecomposition[node] = potentialFormMult.node2polynomialDecomposition[node]
+            
+            
+        potentialForms.append(newPotentialForm)
+        
+    return potentialForms
 
 class GraphOptimizer(GraphParser, GraphAnalyser):
     def __init__(self, source = None, lastLine = None):
         GraphParser.__init__(self, source, lastLine)
+        
+        self.nodes2expand = []
+        self.monomialKey2node = {}
+        
+        self.existingForms = {}
+        self.potentialFormsAdd = {}
+        self.node2potentialFormAdd = {}
+        self.potentialFormsMult = {}
+        self.monomialCost = {}
     
     def findClusterSubgraphs(self, acceptableOperators = [ "+", "-", "*", None ], acceptableKinds = [ "middle" , "integer" ], minimumSize = 2, minimumCost = 0 ):
         sortedNodes = list(reversed(list( nx.topological_sort(self.graph) )))
@@ -446,6 +506,133 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
 
         self.log("Greedy scheme atom sum: stop")
         
+    def initPotentialFormsAdd(self):
+        self.potentialFormsAdd = {}
+        self.node2potentialFormAdd = {}
+        
+        node2primitivePotentialForm = {}
+        queue = []
+        allMonomials = set()
+        monomialsNo = 0
+        for node in self.nodes2expand:
+            newPotentialForm = PotentialFormAdd()
+            newPotentialForm.node2subforms[node] = self.graph.nodes[node]["form"].subforms
+            newMonomials = set(self.graph.nodes[node]["form"].subforms.keys())
+            newPotentialForm.monomials = newMonomials
+            newPotentialForm.nodes.add(node)
+            
+            monomialsNo += len(newMonomials)
+            node2primitivePotentialForm[node] = newPotentialForm
+            allMonomials |= newMonomials
+            self.node2potentialFormAdd[node] = []
+            
+        print("Found ", monomialsNo, " monomials")
+        print("unique ones: ", len(allMonomials))
+        self.monomialCost = self.calcCostOfMonomialsSet(allMonomials)
+        
+        for n in node2primitivePotentialForm:
+            potentialForm = node2primitivePotentialForm[n]
+            for m in potentialForm.monomials:
+                potentialForm.monomialsCost[m] = self.monomialCost[m]
+                
+            queue.append(potentialForm)
+            
+        while queue:
+            newQueue = []
+            
+            for potentialForm in queue:
+                otherNodes = self.nodes2expand - potentialForm.nodes
+                for otherNode in otherNodes:
+                    newPotentialForm = mergePotentialFormAdd( potentialForm, node2primitivePotentialForm[otherNode] )
+                    
+                    if newPotentialForm != None:
+                        newQueue.append(newPotentialForm)
+                #a moze frozenset juz w tworzenia?
+                potentialFormKey = frozenset(potentialForm.monomials)
+                if potentialFormKey in self.potentialFormsAdd:
+                    self.potentialFormsAdd[potentialFormKey] = mergePotentialFormAdd( potentialForm, self.potentialFormsAdd[potentialFormKey] )
+                else:
+                    self.potentialFormsAdd[potentialFormKey] = potentialForm
+                        
+            queue = newQueue
+                    
+    def calcCostOfMonomialsSet(self, monomials):
+        monomial2cost = {}
+        for m in monomials:
+            factors = primeFactorization(m, self.subformFactory.primes)
+            cost = 0
+            for f in factors:
+                cost += factors[f]
+                
+            monomial2cost[m] = cost - 1
+            
+        return monomial2cost
+    
+    def updatePotentialFormsAdd(self):
+        pass
+    
+    def initPotentialFormsMult(self):
+        self.potentialFormsMult = {}
+#        node2potentialForms = {}
+#        monomialNodes2optimize = []
+        nodeMultOptimizers = {}
+        
+        for node in self.nodes2expand:
+            form = self.graph.nodes[node]["form"]
+            if len(form.subforms) > 1:
+                nodeMultOptimizer = NodeOptimizer( form, self.scrLog, self.key2uniqueOperatorNodes )
+                nodeMultOptimizer.findPotentialSolutions()
+                nodeMultOptimizer.generateReducedKeys()
+                nodeMultOptimizers[node] = nodeMultOptimizer
+#            else:
+#                pass
+                
+        availableNodes = set( nodeMultOptimizers.keys() )
+        queue = [ ]
+        
+        for node1, node2 in combinations( availableNodes, 2 ):
+            queue += mergeNodeOptimizers( nodeMultOptimizers[node1], node1, nodeMultOptimizers[node2], node2  )
+            
+        print("queue size: ", len(queue))
+#        while queue:
+#            print("queue size: ", len(queue))
+#            newQueue = {}
+#            for element in queue:
+#                otherNodes = availableNodes - element.usedNodes
+#                
+#                for node in otherNodes:
+#                    newPotentialSolutions = mergeNodeOptimizerWithPotentialFormMult(nodeMultOptimizers[node], node, element)
+#                    
+#                    for potSol in newPotentialSolutions:
+#                        key = ( frozenset(potSol.usedNodes) , frozenset(potSol.allReducedKeys) )
+#                        if not key in newQueue:
+#                            newQueue[key] = potSol
+#                            
+#                    
+#            
+#            queue = list(newQueue.values())
+        
+    def calculateReducedForms(self):
+        pass
+    
+    def updatePotentialFormsMult(self):
+        pass
+        
+    def greedySchemeGlobal(self):
+        self.log("Greedy scheme atom sum: start")
+        self.nodes2expand = self.prepareToExpandOutputNodes()
+        #od razu ogarnac monomiany?
+        self.initPotentialFormsAdd()
+        self.initPotentialFormsMult()
+        
+        for key in self.potentialFormsAdd:
+            self.potentialFormsAdd[key].getMaximumProfitForm(self.key2uniqueOperatorNodes, {}, self.graph)
+#        while self.nodes2expand:
+#            self.greedyGlobalIteration()
+        
+        
+    def greedyGlobalIteration(self):
+        pass
 
                 
     def getMostCommonAtom(self, node, form, subformKey2atomDistribution,  atomDistribution = None):
@@ -634,7 +821,7 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
 #            self.checkForCycles("stary greedy expand")
             return
         
-        nodeOptimizer = NodeOptimizer(form, self.scrLog)
+        nodeOptimizer = NodeOptimizer(form, self.scrLog, self.key2uniqueOperatorNodes)
 #        quotientForm, dividerForm, divisibleForm, restForm  = nodeOptimizer.optimize()
         optimizationResult = nodeOptimizer.optimize()
         self.graph.nodes[node]["symmetric"] = True

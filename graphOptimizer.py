@@ -69,6 +69,23 @@ def mergeNodeOptimizerWithPotentialFormMult(nodeOptimizer, node, potentialFormMu
         
     return potentialForms
 
+def mergePotentialFormMultWithDivisiblePolynomial( potentialFormMult, divisiblePolynomial, node ):
+    commonReducedKeys = divisiblePolynomial.reducedKeys & potentialFormMult.allReducedKeys
+        
+    if not commonReducedKeys and len(potentialFormMult.allReducedKeys) > 0:
+        raise Exception("No common monomials!")
+    
+    newPotentialForm = PotentialFormMult()
+    
+    newPotentialForm.usedNodes = potentialFormMult.usedNodes | set([node])
+    newPotentialForm.allReducedKeys = divisiblePolynomial.reducedKeys | potentialFormMult.allReducedKeys
+    
+    newPotentialForm.node2polynomialDecomposition[node] = divisiblePolynomial
+    for node in potentialFormMult.node2polynomialDecomposition:
+        newPotentialForm.node2polynomialDecomposition[node] = potentialFormMult.node2polynomialDecomposition[node]
+        
+    return newPotentialForm
+
 class GraphOptimizer(GraphParser, GraphAnalyser):
     def __init__(self, source = None, lastLine = None):
         GraphParser.__init__(self, source, lastLine)
@@ -572,10 +589,11 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
         pass
     
     def initPotentialFormsMult(self):
-        self.potentialFormsMult = {}
+        self.potentialFormsMult = []
 #        node2potentialForms = {}
 #        monomialNodes2optimize = []
         nodeMultOptimizers = {}
+        reducedKey2node2poly = {}
         
         for node in self.nodes2expand:
             form = self.graph.nodes[node]["form"]
@@ -583,34 +601,91 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
                 nodeMultOptimizer = NodeOptimizer( form, self.scrLog, self.key2uniqueOperatorNodes )
                 nodeMultOptimizer.findPotentialSolutions()
                 nodeMultOptimizer.generateReducedKeys()
-                nodeMultOptimizers[node] = nodeMultOptimizer
+                if len(nodeMultOptimizer.potentialSolutions) > 0:
+                    nodeMultOptimizers[node] = {}
+                
+                for polyId, poly in enumerate(nodeMultOptimizer.potentialSolutions):
+                    nodeMultOptimizers[node][polyId] = poly
+                    for key in poly.reducedKeys:
+                        if not key in reducedKey2node2poly:
+                            reducedKey2node2poly[key] = {}
+                            
+                        if not node in reducedKey2node2poly[key]:
+                            reducedKey2node2poly[key][node] = set([])
+                        
+                        reducedKey2node2poly[key][node].add(polyId)
+                        
 #            else:
 #                pass
                 
         availableNodes = set( nodeMultOptimizers.keys() )
-        queue = [ ]
+        actualCluster = None
         
-        for node1, node2 in combinations( availableNodes, 2 ):
-            queue += mergeNodeOptimizers( nodeMultOptimizers[node1], node1, nodeMultOptimizers[node2], node2  )
+        queue = []
+        print("Do ogarniecia:")
+        print(len(reducedKey2node2poly))
+        while reducedKey2node2poly:
             
-        print("queue size: ", len(queue))
-#        while queue:
-#            print("queue size: ", len(queue))
-#            newQueue = {}
-#            for element in queue:
-#                otherNodes = availableNodes - element.usedNodes
-#                
-#                for node in otherNodes:
-#                    newPotentialSolutions = mergeNodeOptimizerWithPotentialFormMult(nodeMultOptimizers[node], node, element)
-#                    
-#                    for potSol in newPotentialSolutions:
-#                        key = ( frozenset(potSol.usedNodes) , frozenset(potSol.allReducedKeys) )
-#                        if not key in newQueue:
-#                            newQueue[key] = potSol
-#                            
-#                    
-#            
-#            queue = list(newQueue.values())
+            if actualCluster == None:
+#                print("zaczynam nowy klaster")
+                selectedNode = list(nodeMultOptimizers.keys())[0]
+                selectedPoly = list(nodeMultOptimizers[selectedNode].keys())[0]
+                
+                actualCluster = PotentialFormMult()
+                seed = nodeMultOptimizers[selectedNode][selectedPoly]
+                queue = [ ( selectedNode, seed) ]
+                
+                del nodeMultOptimizers[selectedNode][selectedPoly]
+                if not nodeMultOptimizers[selectedNode]:
+                    del nodeMultOptimizers[selectedNode]
+                    
+                for key in seed.reducedKeys:
+                    reducedKey2node2poly[key][selectedNode].remove(selectedPoly)
+                    
+                    if  not reducedKey2node2poly[key][selectedNode]:
+                        del reducedKey2node2poly[key][selectedNode]
+                        
+                    if not reducedKey2node2poly[key]:
+                        del reducedKey2node2poly[key]
+                
+            usedNodes = set([])
+            
+            while queue:
+                node, newSeed = queue.pop()
+                usedNodes.add(node)
+                keys2investigate = actualCluster.allReducedKeys - newSeed.reducedKeys
+                actualCluster = mergePotentialFormMultWithDivisiblePolynomial(actualCluster, newSeed, node)
+                
+                
+                for key in keys2investigate:
+                    for newNode in reducedKey2node2poly[key]:
+                        if newNode in usedNodes:
+                            continue
+                        
+                        selectedPolyId = reducedKey2node2poly[key][newNode].pop()
+                        
+                        if not reducedKey2node2poly[key][newNode]:
+                            del reducedKey2node2poly[key][newNode]
+                            
+                            
+                        if not reducedKey2node2poly[key]:
+                            del reducedKey2node2poly[key]
+                            
+                            
+                        selectedPoly = nodeMultOptimizers[newNode][selectedPolyId]
+                        del nodeMultOptimizers[newNode][selectedPolyId]
+                        if not nodeMultOptimizers[newNode]:
+                            del nodeMultOptimizers[newNode]
+                            
+                        queue.append( (newNode, selectedPoly) )
+                        usedNodes.add(newNode)
+                
+            self.potentialFormsMult.append(actualCluster)
+            actualCluster = None
+#                print("queue sieze: ", len(queue))
+            
+        print("After clustering: ", len(self.potentialFormsMult))
+                
         
     def calculateReducedForms(self):
         pass

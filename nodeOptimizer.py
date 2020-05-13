@@ -13,7 +13,7 @@ from canonical import CanonicalForm, multiplyForms, addForms, subtractForms
 from formManipulation import reduceForm
 
 class DivisiblePolynomial:
-    def __init__(self, gcdMat, form, key2existingNodes, estimateProfit = False):
+    def __init__(self, gcdMat, form, key2existingNodes, estimateProfit = True):
         self.gcdMatrix = gcdMat
         self.gcdMonomials = frozenset(self.gcdMatrix.keys())
         self.intermediateMonomials = frozenset([ ])
@@ -136,7 +136,7 @@ class NodeOptimizer:
 #            deviderForm = 
         
         
-        gcdSubforms = reduce( math.gcd, list(self.form.subforms.keys()) )
+#        gcdSubforms = reduce( math.gcd, list(self.form.subforms.keys()) )
         
 #        if gcdSubforms != 1:
 #            self.log("Common divider for all subforms! "+ str(gcdSubforms))
@@ -186,7 +186,7 @@ class NodeOptimizer:
                         if not newPoly.intermediateMonomials in usedIntermediates:
                             newQueue.append(newPoly)
                             usedIntermediates.add(newPoly.intermediateMonomials)
-                            usedIntermediates.add(newPoly.gcdMonomials)
+#                            usedIntermediates.add(newPoly.gcdMonomials)
             
             queue = newQueue
             

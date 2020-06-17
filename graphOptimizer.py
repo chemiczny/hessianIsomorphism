@@ -700,11 +700,74 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
         self.initPotentialFormsAdd()
         self.initPotentialFormsMult()
         
-        for key in self.potentialFormsAdd:
-            self.potentialFormsAdd[key].getMaximumProfitForm(self.key2uniqueOperatorNodes, {}, self.graph)
-#        while self.nodes2expand:
-#            self.greedyGlobalIteration()
+        maxAddProfit = 0
+        bestAddForm = None
+        addClusterKey = None
+        rl2form = None
+        rl2nodes = None
         
+        for key in self.potentialFormsAdd:
+            maxProfit, bestKey, reducedLocal2form, reducedLocal2nodes = self.potentialFormsAdd[key].getMaximumProfitForm(self.key2uniqueOperatorNodes, {}, self.graph)
+
+            if maxProfit > maxAddProfit:
+                maxAddProfit = maxProfit
+                bestAddForm = key
+                addClusterKey = bestKey
+                rl2form = reducedLocal2form
+                rl2nodes = reducedLocal2nodes
+                
+        self.usePotentialFormAdd(bestAddForm,addClusterKey, rl2form, rl2nodes )
+        
+        
+    def usePotentialFormAdd(self, potentialFormKey, clusterKey, rl2form, rl2nodes):
+        print("wykorzystuje znaleziony klaster sumy")
+        selectedPotentialForm = self.potentialFormsAdd[potentialFormKey]
+        #znalezienie dobrego wierzcholka zrodloego
+        print("Znaleziona forma do wyciagniecia: ")
+        print( rl2form[clusterKey].subforms )
+        sourceNode = None
+        need2generateSource = True
+        scale = 1
+        
+        if clusterKey in self.key2uniqueOperatorNodes:
+            sourceNode = self.key2uniqueOperatorNodes[clusterKey]
+            need2generateSource = False
+            print("wierzcholek do uzycia")
+            
+        elif clusterKey in rl2nodes:
+            sources = rl2nodes[clusterKey]
+            
+            #zrodlo bez skalowania
+            for s in sources:
+                form = CanonicalForm()
+                form.subforms = selectedPotentialForm.node2subforms[s]
+                
+                if form.generateKey() == clusterKey:
+                    print("jest git")
+                    sourceNode = s
+                    break
+            else:    
+                s = sources.pop()
+                form = CanonicalForm()
+                form.subforms = selectedPotentialForm.node2subforms[s]
+                
+                subKey = list(form.subforms.keys()).pop()
+                
+                scale = form.subforms[subKey] // rl2form[clusterKey].subforms[subKey] 
+                sourceNode = s
+                print("Wierzcholek ze skalowanie")
+                print(form.subforms[subKey] , rl2form[clusterKey].subforms[subKey] )
+                print(scale)
+#                if form.generateKey() != potentialFormKey:
+#                    raise Exception("Error while generating source node")
+                
+        
+        if need2generateSource:
+            if scale == 1:
+                pass
+            else:
+                pass
+            
         
     def greedyGlobalIteration(self):
         pass

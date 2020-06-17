@@ -16,15 +16,24 @@ class PotentialFormAdd:
         self.nodes = set([])
         self.monomialsCost = {}
         
+    #poza wartoscia zysku zwracac minimalna ilosc informacji potrzebna do
+    #wykonania zmian w grafie
     def getMaximumProfitForm(self, canonical2node, reduced2nodes, graph):
         reducedLocal2nodes, reducedLocal2form = self.clusterSubforms()
         
         maxProfit = 0
+        bestKey = None
         for clusterKey in reducedLocal2nodes:
-            maxProfit = max(self.calculateClusterProfit(clusterKey, reducedLocal2nodes, reducedLocal2form, canonical2node, reduced2nodes, graph ), maxProfit)
+            newProfit = self.calculateClusterProfit(clusterKey, reducedLocal2nodes, reducedLocal2form, canonical2node, reduced2nodes, graph )
+            if newProfit > maxProfit:
+                maxProfit = newProfit
+                bestKey = clusterKey
             
-        return maxProfit
+        return maxProfit, bestKey, reducedLocal2form, reducedLocal2nodes
     
+    #wygenerowac wszystkie mozliwe zestawy form zredukowanych - zakladajac, ze zawieraja wszystkie
+    #monomiany w zakresie formy potencjalnej. Czyli dzieli wspolczynniki monomianow z danego wierzcholka
+    #przez ich najwiekszy wspolny dzielnik i zapisuje
     def clusterSubforms(self):
         #zmienic na generacje kluczy zredukowanych form
         reducedKey2nodes = {}
@@ -43,7 +52,7 @@ class PotentialFormAdd:
                 for subKey in subforms:
                     form.subforms[subKey] = subforms[subKey] // gcd
                     
-                reducedKey = form.generateKey
+                reducedKey = form.generateKey()
             else:
                 form = CanonicalForm()
                 form.subforms = self.node2subforms[node]

@@ -11,6 +11,7 @@ from canonical import CanonicalForm
 
 class PotentialFormAdd:
     def __init__(self):
+        #zawiera tylko ta czesc subform, ktore jest zbudowana z dostepnych monomianow
         self.node2subforms = {}
         self.monomials = set([])
         self.nodes = set([])
@@ -59,9 +60,9 @@ class PotentialFormAdd:
                 reducedKey = form.generateKey()
                 
             if reducedKey in reducedKey2nodes:
-                reducedKey2nodes[reducedKey].append(node)
+                reducedKey2nodes[reducedKey].add(node)
             else:
-                reducedKey2nodes[reducedKey] = [ node ]
+                reducedKey2nodes[reducedKey] = set([ node ])
                 reducedKey2form[reducedKey] = form
 #                
         return reducedKey2nodes, reducedKey2form
@@ -71,10 +72,15 @@ class PotentialFormAdd:
         primitiveCost = 0
         primitiveSource = set([])
         currentCluster = set( reducedLocal2nodes[primitiveKey] )
+        cleanRemovals = len(currentCluster)
         
         if primitiveKey in canonical2node:
             primitiveCost = 0
             primitiveSource.add( canonical2node[primitiveKey] )
+            
+            if canonical2node[primitiveKey] in currentCluster:
+                cleanRemovals -= 1
+            
         elif primitiveKey in reduced2nodesEx:
             primitiveCost += 1
             primitiveSource |= reduced2nodesEx[primitiveKey]
@@ -91,35 +97,35 @@ class PotentialFormAdd:
         else:
             baseNode = primitiveSource.pop()
             
-        actualProfit += len(currentCluster) * allMonomialCost
+        actualProfit += cleanRemovals * allMonomialCost
         analysedForm = reducedLocal2form[primitiveKey]
         
         highestProfit = 0
-        for reducedKey in reducedLocal2form:
-            if reducedKey == primitiveKey:
-                continue
-            
-            ratio2monomials = {}
-            
-            for key in analysedForm.subforms:
-                ratio = "{}:{}".format( analysedForm.subforms[key], reducedLocal2form[reducedKey].subforms[key] )
-                
-                if ratio in ratio2monomials:
-                    ratio2monomials[ratio].append(key)
-                else:
-                    ratio2monomials[ratio] = [key]
-                    
-            
-            highestSubProfit = 0
-            for ratio in ratio2monomials:
-                newProfit = 0
-                for monomial in ratio2monomials[ratio]:
-                    newProfit += self.monomialsCost[monomial]
-                    
-                if newProfit > highestSubProfit:
-                    highestSubProfit = newProfit
-                    
-            highestProfit += highestSubProfit
+#        for reducedKey in reducedLocal2form:
+#            if reducedKey == primitiveKey:
+#                continue
+#            
+#            ratio2monomials = {}
+#            
+#            for key in analysedForm.subforms:
+#                ratio = "{}:{}".format( analysedForm.subforms[key], reducedLocal2form[reducedKey].subforms[key] )
+#                
+#                if ratio in ratio2monomials:
+#                    ratio2monomials[ratio].append(key)
+#                else:
+#                    ratio2monomials[ratio] = [key]
+#                    
+#            
+#            highestSubProfit = 0
+#            for ratio in ratio2monomials:
+#                newProfit = 0
+#                for monomial in ratio2monomials[ratio]:
+#                    newProfit += self.monomialsCost[monomial]
+#                    
+#                if newProfit > highestSubProfit:
+#                    highestSubProfit = newProfit
+#                    
+#            highestProfit += highestSubProfit
             
         actualProfit += highestProfit
         

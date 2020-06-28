@@ -396,9 +396,23 @@ class GraphParser:
         newKey = newForm.generateKey()
         self.graph.nodes[node]["canonicalKey"] = newKey
         self.key2uniqueOperatorNodes[newKey] = node
+        
+    def createIntegerCanonical(self, value):
+        newForm = CanonicalForm()
+        newForm.subforms[ 1 ] = value
+        
+        return newForm
+    
+    def nodeFromCanonical(self, canonicalForm):
+        key = canonicalForm.generateKey()
+        
+        if key in self.key2uniqueOperatorNodes:
+            return self.key2uniqueOperatorNodes[key]
+        
+        return None
             
     def insertNewOperatorBottomUp(self, operatorName, output, canonicalForm):
-        if not operatorName in [ "+", "*", "-", "unkRest", "unkNoRest" ] :
+        if not operatorName in [ "+", "*", "-", "unkRest", "unkNoRest" , "unk" ] :
             raise Exception("Unsupported operator in bottom up operator insert!")
             
         key = canonicalForm.generateKey()
@@ -987,6 +1001,7 @@ class GraphParser:
         predecessors = list(graph.predecessors( node))
                 
         if not predecessors:
+            print(node)
             raise Exception("Node without predecessors!")
         
         order2predecessor = {}

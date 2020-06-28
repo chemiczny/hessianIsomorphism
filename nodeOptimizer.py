@@ -202,6 +202,18 @@ class NodeOptimizer:
         
         optimizationResult = OptimizationResult()
         
+        if not self.potentialSolutions:
+            optimizationResult.dividingWasPossible = False
+#            print("nie znaleziono zadnych rozwiazan!")
+#            print(self.form.subforms)
+            if not optimizationResult.relativelyPrimes:
+                for subKey in self.form.subforms:
+                    newForm = CanonicalForm()
+                    newForm.subforms[subKey] = self.form.subforms[subKey]
+                    optimizationResult.relativelyPrimes.append(newForm)
+                
+            return optimizationResult
+        
         if self.gcdKeys == unitPolynomial:
             optimizationResult.dividingWasPossible = False
             

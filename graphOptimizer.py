@@ -15,6 +15,7 @@ from collections import defaultdict
 from canonical import CanonicalForm
 from graphAnalyser import GraphAnalyser
 from nodeOptimizer import NodeOptimizer
+from canonical import addForms, multiplyForms, subtractForms
 from itertools import combinations
 
 from formManipulation import primeFactorization, generateSubKey2AtomDist, CouchySchwarzTest
@@ -697,42 +698,74 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
         self.log("Greedy scheme atom sum: start")
         self.nodes2expand = self.prepareToExpandOutputNodes()
         #od razu ogarnac monomiany?
-        self.initPotentialFormsAdd()
-        self.initPotentialFormsMult()
         
-        maxAddProfit = 0
-        bestAddForm = None
-        addClusterKey = None
-        rl2form = None
-        rl2nodes = None
-        
-        for key in self.potentialFormsAdd:
-            maxProfit, bestKey, reducedLocal2form, reducedLocal2nodes = self.potentialFormsAdd[key].getMaximumProfitForm(self.key2uniqueOperatorNodes, {}, self.graph)
-
-            if maxProfit > maxAddProfit:
-                maxAddProfit = maxProfit
-                bestAddForm = key
-                addClusterKey = bestKey
-                rl2form = reducedLocal2form
-                rl2nodes = reducedLocal2nodes
+#        while True:
+        for i in range(17):
+            if len(self.nodes2expand) == 0:
+                break
+            
+            self.initPotentialFormsAdd()
+            self.initPotentialFormsMult()
+            
+            maxAddProfit = 0
+            bestAddForm = None
+            addClusterKey = None
+            rl2form = None
+            rl2nodes = None
+            
+            for key in self.potentialFormsAdd:
+                maxProfit, bestKey, reducedLocal2form, reducedLocal2nodes = self.potentialFormsAdd[key].getMaximumProfitForm(self.key2uniqueOperatorNodes, {}, self.graph)
+    
+                if maxProfit > maxAddProfit:
+#                    print("zysk")
+                    maxAddProfit = maxProfit
+                    bestAddForm = key
+                    addClusterKey = bestKey
+                    rl2form = reducedLocal2form
+                    rl2nodes = reducedLocal2nodes
+                    
+            if maxAddProfit == 0 :
+                print("brak profitu!")
+                break
+            
+#            if False in self.nodes2expand:
+#                print("dziwne rzeczy przed usem")
                 
-        self.usePotentialFormAdd(bestAddForm,addClusterKey, rl2form, rl2nodes )
+            self.usePotentialFormAdd(bestAddForm,addClusterKey, rl2form, rl2nodes )
+            
+#            if False in self.nodes2expand:
+#                print("dziwne rzeczy po usie")
+            
+#        self.checkForCycles("przed greedy expandem")
+        for node in self.nodes2expand:
+            self.greedyExpandSum(node)
+            
+#        self.checkForCycles("lol")
         
         
     def usePotentialFormAdd(self, potentialFormKey, clusterKey, rl2form, rl2nodes):
         print("wykorzystuje znaleziony klaster sumy")
+#        self.checkForCycles("usePotentialFormAdd: start")
         selectedPotentialForm = self.potentialFormsAdd[potentialFormKey]
         #znalezienie dobrego wierzcholka zrodloego
         print("Znaleziona forma do wyciagniecia: ")
         print( rl2form[clusterKey].subforms )
+        print("wielkosc klastera: ")
+        
         sourceNode = None
         need2generateSource = True
         scale = 1
+        nodes2transform = rl2nodes[clusterKey]
+        print(len(nodes2transform))
         
         if clusterKey in self.key2uniqueOperatorNodes:
             sourceNode = self.key2uniqueOperatorNodes[clusterKey]
             need2generateSource = False
             print("wierzcholek do uzycia")
+            
+            if sourceNode in nodes2transform:
+                print("wierzcholek zrodlowy wsrod transformowanych!")
+                nodes2transform.remove(sourceNode)
             
         elif clusterKey in rl2nodes:
             sources = rl2nodes[clusterKey]
@@ -745,6 +778,7 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
                 if form.generateKey() == clusterKey:
                     print("jest git")
                     sourceNode = s
+                    sources.remove(s)
                     break
             else:    
                 s = sources.pop()
@@ -754,20 +788,119 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
                 subKey = list(form.subforms.keys()).pop()
                 
                 scale = form.subforms[subKey] // rl2form[clusterKey].subforms[subKey] 
+                if scale < 1:
+                    raise Exception("Scaling node less than 1!")
                 sourceNode = s
-                print("Wierzcholek ze skalowanie")
+                print("Wierzcholek ze skalowaniem")
                 print(form.subforms[subKey] , rl2form[clusterKey].subforms[subKey] )
                 print(scale)
 #                if form.generateKey() != potentialFormKey:
 #                    raise Exception("Error while generating source node")
                 
-        
+        print("generacje zrodla: ", need2generateSource)
+        print("skalowanie", scale)
         if need2generateSource:
             if scale == 1:
-                pass
+                self.nodes2expand.remove( sourceNode )
+                self.graph.nodes[sourceNode]["operator"] = "+"
+                self.graph.nodes[sourceNode]["fix"] = "infix"
+                newCanonicalForm = subtractForms( self.graph.nodes[sourceNode]["form"], rl2form[clusterKey] )
+                newNode, alreadyExisting = self.insertNewOperatorBottomUp( "unk", sourceNode, newCanonicalForm )
+                
+                if not alreadyExisting:
+                    self.nodes2expand.add(newNode)
+                
+                sourceNode, rfAlreadyExisting = self.insertNewOperatorBottomUp( "unk", sourceNode, rl2form[clusterKey] )
+                if rfAlreadyExisting:
+                    raise Exception("This node should not exists until now!")
+                else:
+                    self.nodes2expand.add(sourceNode)
             else:
-                pass
+                reducedForm = rl2form[clusterKey]
+                fullForm = CanonicalForm()
+                
+                for key in reducedForm.subforms:
+                    fullForm.subforms[key] = scale * reducedForm.subforms[key]
+                
+                self.nodes2expand.remove( sourceNode )
+                self.graph.nodes[sourceNode]["operator"] = "+"
+                self.graph.nodes[sourceNode]["fix"] = "infix"
+                newCanonicalForm = subtractForms( self.graph.nodes[sourceNode]["form"], fullForm )
+                newNode, alreadyExisting = self.insertNewOperatorBottomUp( "unk", sourceNode, newCanonicalForm )
+                
+                if not alreadyExisting:
+                    self.nodes2expand.add(newNode)
+                
+                fullFormNode, fullAlreadyExisting = self.insertNewOperatorBottomUp( "*", sourceNode, fullForm )
+                
+                if fullAlreadyExisting:
+                    raise Exception("Full form exists: correct behauvior not implemented")
+                    
+                scaleForm = self.createIntegerCanonical(scale)
+                scaleNode = self.nodeFromCanonical(scaleForm)
+                
+                if scaleNode == None:
+                    self.createIntegerForm(str(scale), scale)
+                    scaleNode = str(scale)
+                    
+#                self.graph.add_edge( scaleNode, fullFormNode, fold = 1)
+                self.addEdgeOrIncreaseFold(scaleNode, fullFormNode)
+                
+                sourceNode, rfAlreadyExisting = self.insertNewOperatorBottomUp( "unk", fullFormNode, rl2form[clusterKey] )
+                
+                if not rfAlreadyExisting:
+                    self.nodes2expand.add(sourceNode)
             
+#        self.checkForCycles("usePotentialFormAdd: po generacji zrodla "+str(need2generateSource))
+        
+        
+        form2insert = rl2form[clusterKey]
+        selectedKey = list(form2insert.subforms.keys())[0]
+        for n in nodes2transform:
+            self.nodes2expand.remove(n)
+            
+            scale = selectedPotentialForm.node2subforms[n][selectedKey] // form2insert.subforms[selectedKey]
+            self.graph.nodes[n]["operator"] = "+"
+            self.graph.nodes[n]["fix"] = "infix"
+                
+            if scale == 1:
+                newForm = subtractForms(self.graph.nodes[n]["form"], form2insert)
+                
+                restNode, restExisting = self.insertNewOperatorBottomUp( "unk", n, newForm )
+                if not restExisting:
+                    self.nodes2expand.add(restNode)
+                    
+                self.addEdgeOrIncreaseFold(sourceNode, n)
+                
+                
+            else:
+                fullForm = CanonicalForm()
+                
+                for key in reducedForm.subforms:
+                    fullForm.subforms[key] = scale * form2insert.subforms[key]
+                    
+                restForm =subtractForms(self.graph.nodes[n]["form"], fullForm)
+                
+                restNode, restExisting = self.insertNewOperatorBottomUp( "unk", n, restForm )
+                if not restExisting:
+                    self.nodes2expand.add(restNode)  
+                    
+                scaledNode, scaledExists = self.insertNewOperatorBottomUp( "*", n, fullForm )
+                
+                if scaledExists:
+                    continue
+                
+                scaleForm = self.createIntegerCanonical(scale)
+                scaleNode = self.nodeFromCanonical(scaleForm)
+                
+                if scaleNode == None:
+                    self.createIntegerForm(str(scale), scale)
+                    scaleNode = str(scale)
+                    
+                self.addEdgeOrIncreaseFold(scaleNode, scaledNode)
+                self.addEdgeOrIncreaseFold(sourceNode, scaledNode)
+                
+#        self.checkForCycles("usePotentialFormAdd: finish ")
         
     def greedyGlobalIteration(self):
         pass

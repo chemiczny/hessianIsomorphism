@@ -190,6 +190,17 @@ class GraphParser:
                 
             elif outputInLine:
                 expr = afterEq
+                maxLines = 50
+                lineId = 0
+                while not ";" in expr and lineId < maxLines:
+                    expr += source.readline()
+                    lineId += 1
+                    
+                if not ";" in expr:
+                    if lineId >= maxLines:
+                        "za malo linii wczytao?"
+                    print(expr)
+                    raise Exception("Invalid expression!")
                 expr = expr.replace(";", "")
                 newVar = beforeEq
                 
@@ -637,6 +648,10 @@ class GraphParser:
                 tokenIndex += len(subExpr)
                 
                 node = self.parseExpression( subExpr )
+                if not node :
+                    print("Brak drugiego argumentu dla operatora! ")
+                    print(exprSplit)
+                    print(subExpr)
                     
                 currentNode = self.insertNewAssimetricOperator(token, [ currentNode, node ], "infix")
                     

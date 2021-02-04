@@ -700,12 +700,13 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
         #od razu ogarnac monomiany?
         
 #        while True:
-        for i in range(17):
+        for i in range(10):
             if len(self.nodes2expand) == 0:
+                print("wierzcholki do ekspancji wyczerpane")
                 break
             
             self.initPotentialFormsAdd()
-            self.initPotentialFormsMult()
+#            self.initPotentialFormsMult()
             
             maxAddProfit = 0
             bestAddForm = None
@@ -876,7 +877,7 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
             else:
                 fullForm = CanonicalForm()
                 
-                for key in reducedForm.subforms:
+                for key in form2insert.subforms:
                     fullForm.subforms[key] = scale * form2insert.subforms[key]
                     
                 restForm =subtractForms(self.graph.nodes[n]["form"], fullForm)

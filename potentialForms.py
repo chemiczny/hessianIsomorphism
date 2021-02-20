@@ -167,6 +167,18 @@ def mergePotentialFormAdd(form1, form2):
     
 class PotentialFormMult:
     def __init__(self):
+        #id uzytych wierzcholkow
         self.usedNodes = set([])
+        #wartosci to obiekty DivisiblePolynomial
         self.node2polynomialDecomposition = {}
         self.allReducedKeys = set([])
+        
+    """ Poki co szybkie i niedokladne rozwiazanie
+    """
+    def calcProfit(self):
+        totalProfit = 0
+        
+        for node in self.node2polynomialDecomposition:
+            totalProfit = self.node2polynomialDecomposition[node].calcProfit(self.allReducedKeys)
+            
+        return totalProfit

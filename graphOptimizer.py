@@ -700,13 +700,13 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
         #od razu ogarnac monomiany?
         
 #        while True:
-        for i in range(10):
+        for i in range(5):
             if len(self.nodes2expand) == 0:
                 print("wierzcholki do ekspancji wyczerpane")
                 break
             
             self.initPotentialFormsAdd()
-#            self.initPotentialFormsMult()
+            self.initPotentialFormsMult()
             
             maxAddProfit = 0
             bestAddForm = None
@@ -725,14 +725,28 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
                     rl2form = reducedLocal2form
                     rl2nodes = reducedLocal2nodes
                     
-            if maxAddProfit == 0 :
+                    
+            maxMultProfit = 0
+            bestPotForm = None
+            for potForm in self.potentialFormsMult:
+                newMultProfit = potForm.calcProfit()
+                
+                if newMultProfit > maxMultProfit:
+                    maxMultProfit = newMultProfit
+                    bestPotForm = potForm
+                    
+            if maxAddProfit == 0 and maxMultProfit == 0:
                 print("brak profitu!")
                 break
             
 #            if False in self.nodes2expand:
 #                print("dziwne rzeczy przed usem")
                 
-            self.usePotentialFormAdd(bestAddForm,addClusterKey, rl2form, rl2nodes )
+            print("add vs mult ", maxAddProfit, maxMultProfit)
+            if maxAddProfit > maxMultProfit and False:
+                self.usePotentialFormAdd(bestAddForm,addClusterKey, rl2form, rl2nodes )
+            else:
+                self.usePotentialFormMult( bestPotForm )
             
 #            if False in self.nodes2expand:
 #                print("dziwne rzeczy po usie")
@@ -1161,6 +1175,65 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
             
             if not dividerPresentInGraph:
                 self.greedyExpandSum(dividerNode)
+                
+    def usePotentialFormMult(self, potentialForm):
+        for node in potentialForm.node2polynomialDecomposition:
+            quotientForm, dividerForm, divisibleForm, restForm = potentialForm.node2polynomialDecomposition[node].getForms()
+            self.expandMult( node, quotientForm, dividerForm, divisibleForm, restForm )
+            
+    def expandMult(self, node, quotientForm, dividerForm, divisibleForm, restForm ):
+        
+#        for form in [ quotientForm, dividerForm, divisibleForm, restForm  ]:
+#            algebraicOne = True
+#            for subKey in form.subforms:
+#                if subKey != 1:
+#                    algebraicOne = False
+#                    break
+#                
+#                if form.subforms[subKey] != 1:
+#                    algebraicOne = False
+#                    break
+#                
+#            if algebraicOne:
+#                raise Exception("Algebraic one detected!")
+        
+        self.nodes2expand.remove(node)
+        if restForm.subforms:
+            self.graph.nodes[node]["operator"] = "+"
+            restNode, presentInGraph = self.insertNewOperatorBottomUp("unkRest", node, restForm)
+#            self.checkForCycles("dodanie reszty")
+            if not presentInGraph:
+                self.nodes2expand.add(restNode)
+                
+            divisibleNode, presentInGraph = self.insertNewOperatorBottomUp("*", node, divisibleForm )
+#            self.checkForCycles("dodanie podzielnego wielomianu")
+            if not presentInGraph:
+                quotientNode, quotientPresentInGraph = self.insertNewOperatorBottomUp("unkRest", divisibleNode, quotientForm )
+#                self.checkForCycles("kurwa 1")
+                
+                if not quotientPresentInGraph:
+                    self.nodes2expand.add( quotientNode )
+                    
+                dividerNode, dividerPresentInGraph = self.insertNewOperatorBottomUp("unkRest", divisibleNode, dividerForm )
+#                self.checkForCycles("kurwa 2")
+                if not dividerPresentInGraph:
+                    self.nodes2expand.add( dividerNode )
+                
+        else:
+            self.graph.nodes[node]["operator"] = "*"
+            
+            quotientNode, quotientPresentInGraph = self.insertNewOperatorBottomUp("unkNoRest", node, quotientForm)
+#            self.checkForCycles("kurwa 3")
+            if not quotientPresentInGraph:
+                self.nodes2expand.add(quotientNode)
+#                self.greedyExpandSum(quotientNode)
+                
+            dividerNode, dividerPresentInGraph = self.insertNewOperatorBottomUp("unkNoRest", node, dividerForm )
+#            self.checkForCycles("kurwa 4", dividerForm)
+            
+            if not dividerPresentInGraph:
+                self.nodes2expand.add(dividerNode)
+#                self.greedyExpandSum(dividerNode)
     
     def findClusters(self):
         self.log("Searching for cluster start...")

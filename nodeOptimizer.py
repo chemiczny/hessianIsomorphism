@@ -32,27 +32,42 @@ class DivisiblePolynomial:
             
         self.reducedKeys = set([])
         
-    def calcProfit(self): 
+    """
+    Zakladamy, ze wejsciowy wielomian sklada sie z wielomianow, z ktorych kazdy ma jakies dzielniki
+    Koszt wejsciowego wielomianu to n-1 dodawan i n mnozen, gdzie n to liczba monomianow
+    
+    Analogicznie oblicza sie koszt reszty z dzielenia. W przypadku dzielnika i dzielnej 
+    liczymy tylko koszt dodawania. Problematycznie jest gdy dana forma juz gdzies wystepuje - 
+    wowczas obliczenia dokladnego zysku wymagaloby czasochlonnej faktoryzacji
+    """
+    def calcProfit(self, additionalCostFreeForms = []): 
         quotientForm, dividerForm, divisibleForm, restForm = findPolynomialCoeff(self.form, self, 1)
-        restCost = len(restForm.subforms)
-        resultMonomialsCost = len(divisibleForm.subforms)
-        gcdCost = len(quotientForm.subforms)
-        interCost = len( dividerForm.subforms )
+        restCost = 2*len(restForm.subforms)-1
+        resultMonomialsCost = 2*len(divisibleForm.subforms)-1
+        gcdCost = len(quotientForm.subforms)-1
+        interCost = len( dividerForm.subforms )-1
         
-        if restForm.generateKey() in self.key2node:
+        restFormKey = restForm.generateKey()
+        if restFormKey in self.key2node or restFormKey in additionalCostFreeForms:
             restCost = 0
             
-        if quotientForm.generateKey() in self.key2node:
+        quotientFormKey = quotientForm.generateKey()
+        if quotientFormKey in self.key2node or quotientFormKey in additionalCostFreeForms:
             gcdCost = 0
             
-        if dividerForm.generateKey() in self.key2node:
+        dividerFormKey = dividerForm.generateKey()
+        if dividerFormKey in self.key2node or dividerFormKey in additionalCostFreeForms:
             interCost = 0
             
-        if divisibleForm.generateKey() in self.key2node:
+        divisibleFormKey = divisibleForm.generateKey()
+        if divisibleFormKey in self.key2node or divisibleFormKey in additionalCostFreeForms:
             interCost = 0
             gcdCost = 0
         
-        return 2*resultMonomialsCost - gcdCost - interCost -2*restCost
+        return resultMonomialsCost - gcdCost - interCost - restCost 
+    
+    def getForms(self):
+        return findPolynomialCoeff(self.form, self, 1)
     
     def generateReducedKeys(self):
         self.reducedKeys = set([])

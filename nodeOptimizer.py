@@ -11,6 +11,7 @@ from functools import reduce
 from canonical import CanonicalForm, multiplyForms, addForms, subtractForms
 #import networkx as nx
 from formManipulation import reduceForm
+from random import randint
 
 class DivisiblePolynomial:
     def __init__(self, gcdMat, form, key2existingNodes, estimateProfit = True):
@@ -131,6 +132,7 @@ class NodeOptimizer:
         self.form = nodeForm
         self.logName = logName
         self.key2existingNode = key2existingNode
+        #lista obiektow DivisiblePolynomial
         self.potentialSolutions = []
         
     def log(self, logText):
@@ -161,13 +163,14 @@ class NodeOptimizer:
         
         gcdSubformsPairs =set([])
         subformKeys = list(self.form.subforms.keys())
-        
+        #znalezienie wszystkich najwiekszych wspolnych dzielnikow
         for i , subKey1 in enumerate(subformKeys):
             for subKey2 in subformKeys[i+1:]:
                 gcdSubformsPairs.add( math.gcd(subKey1, subKey2) )
                 
         monoGCDdict = {}
         
+        #znalezeinie co wychodzi po podzieleniu kolejnychw yrazen przez dzielniki
         for subGcd in gcdSubformsPairs:
             newRow = {}
             newRow[subGcd] = {}
@@ -326,7 +329,13 @@ def findPolynomialCoeff(form, poly, gcdCoeff):
         for interKey in poly.gcdMatrix[gcdKey]:
             resKey = poly.gcdMatrix[gcdKey][interKey]
             if resKey in intermediate2uniqueResults[interKey]:
-                dividerForm.subforms[gcdKey] = form.subforms[resKey]//quotientForm.subforms[interKey]
+                b= form.subforms[resKey]//quotientForm.subforms[interKey]
+#                if b > 1:
+#                    print("lol")
+#                    dividerForm.subforms[gcdKey] = randint( 1, b )
+#                else:
+                dividerForm.subforms[gcdKey] = b
+#                dividerForm.subforms[gcdKey] = form.subforms[resKey]//quotientForm.subforms[interKey]
         
     divisibleForm = multiplyForms(quotientForm, dividerForm)
     restForm = subtractForms(form, divisibleForm)

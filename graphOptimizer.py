@@ -17,7 +17,7 @@ from graphAnalyser import GraphAnalyser
 from nodeOptimizer import NodeOptimizer
 from canonical import addForms, multiplyForms, subtractForms
 from itertools import combinations
-
+from collections import defaultdict
 from formManipulation import primeFactorization, generateSubKey2AtomDist, CouchySchwarzTest
 from potentialForms import PotentialFormAdd, PotentialFormMult, mergePotentialFormAdd
 
@@ -595,7 +595,7 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
 #        monomialNodes2optimize = []
         nodeMultOptimizers = {}
         reducedKey2node2poly = {}
-        
+        #rozklad na czynniki kazdego z wielomianow + grupowanie
         for node in self.nodes2expand:
             form = self.graph.nodes[node]["form"]
             if len(form.subforms) > 1:
@@ -621,10 +621,19 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
                 
         availableNodes = set( nodeMultOptimizers.keys() )
         actualCluster = None
+#        stats = defaultdict(int)
+#        print("saldsal")
+#        for key in reducedKey2node2poly:
+#            stats[ len(reducedKey2node2poly[key]  ) ] += 1
+#            if len(reducedKey2node2poly[key]) > 10:
+#                print(key)
+            
+#        print("lo kurwa")
+#        print(stats)
         
         queue = []
-        print("Do ogarniecia:")
-        print(len(reducedKey2node2poly))
+#        print("Do ogarniecia:")
+#        print(len(reducedKey2node2poly))
         while reducedKey2node2poly:
             
             if actualCluster == None:
@@ -641,6 +650,7 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
                     del nodeMultOptimizers[selectedNode]
                     
                 for key in seed.reducedKeys:
+#                    print(key, selectedNode, selectedPoly)
                     reducedKey2node2poly[key][selectedNode].remove(selectedPoly)
                     
                     if  not reducedKey2node2poly[key][selectedNode]:
@@ -654,32 +664,39 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
             while queue:
                 node, newSeed = queue.pop()
                 usedNodes.add(node)
-                keys2investigate = actualCluster.allReducedKeys - newSeed.reducedKeys
+                keys2investigate = actualCluster.allReducedKeys | newSeed.reducedKeys
                 actualCluster = mergePotentialFormMultWithDivisiblePolynomial(actualCluster, newSeed, node)
                 
                 
                 for key in keys2investigate:
-                    for newNode in reducedKey2node2poly[key]:
+                    if key in reducedKey2node2poly:
+                        nodes2intesigate = list(reducedKey2node2poly[key].keys())
+                    else:
+                        continue
+                        
+                    for newNode in nodes2intesigate:
                         if newNode in usedNodes:
                             continue
                         
                         selectedPolyId = reducedKey2node2poly[key][newNode].pop()
-                        
-                        if not reducedKey2node2poly[key][newNode]:
-                            del reducedKey2node2poly[key][newNode]
                             
-                            
-                        if not reducedKey2node2poly[key]:
-                            del reducedKey2node2poly[key]
-                            
-                            
+#                        print(newNode, selectedPolyId)
                         selectedPoly = nodeMultOptimizers[newNode][selectedPolyId]
                         del nodeMultOptimizers[newNode][selectedPolyId]
                         if not nodeMultOptimizers[newNode]:
                             del nodeMultOptimizers[newNode]
                             
+                        for key2delete in selectedPoly.reducedKeys:
+                            reducedKey2node2poly[key2delete][newNode].discard(selectedPolyId)
+                            
+                            if not reducedKey2node2poly[key2delete][newNode]:
+                                del reducedKey2node2poly[key2delete][newNode]
+                                
+                            if not reducedKey2node2poly[key2delete]:
+                                del reducedKey2node2poly[key2delete]
+                            
                         queue.append( (newNode, selectedPoly) )
-                        usedNodes.add(newNode)
+#                        usedNodes.add(newNode)
                 
             self.potentialFormsMult.append(actualCluster)
             actualCluster = None
@@ -700,7 +717,7 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
         #od razu ogarnac monomiany?
         
 #        while True:
-        for i in range(5):
+        for i in range(20):
             if len(self.nodes2expand) == 0:
                 print("wierzcholki do ekspancji wyczerpane")
                 break
@@ -728,13 +745,17 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
                     
             maxMultProfit = 0
             bestPotForm = None
+            stats = defaultdict(int)
             for potForm in self.potentialFormsMult:
                 newMultProfit = potForm.calcProfit()
-                
+#                newMultProfit = len(potForm.usedNodes)
+                stats[ len(potForm.usedNodes) ] += 1
                 if newMultProfit > maxMultProfit:
                     maxMultProfit = newMultProfit
                     bestPotForm = potForm
                     
+            print("STATSY!")
+            print(stats)
             if maxAddProfit == 0 and maxMultProfit == 0:
                 print("brak profitu!")
                 break
@@ -746,6 +767,8 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
             if maxAddProfit > maxMultProfit and False:
                 self.usePotentialFormAdd(bestAddForm,addClusterKey, rl2form, rl2nodes )
             else:
+                print("len formy mult")
+                print(len(bestPotForm.usedNodes))
                 self.usePotentialFormMult( bestPotForm )
             
 #            if False in self.nodes2expand:

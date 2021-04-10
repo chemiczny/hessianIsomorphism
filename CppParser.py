@@ -18,7 +18,7 @@ import pickle
 class CppParser:
     def __init__(self, cppFile, graphPickle = "test.pickle", frequentSubgraphPickle = "frequent.pickle"):
         self.cppFile = cppFile
-        self.functions = []
+        self.function = None
         self.graphPickle = graphPickle
         self.frequentSubgraphsPickle = frequentSubgraphPickle
         
@@ -33,7 +33,7 @@ class CppParser:
             
 #            if "void" in line :
         newFunction = GraphOptimizer(cppF, line)
-        self.functions.append(newFunction)
+        self.function = newFunction
         
         cppF.close()
 #        newFunction.findClusterSubgraphs(acceptableOperators = [ "+", "-", "*", "/", None ], acceptableKinds = [ "middle"  ] )
@@ -49,14 +49,21 @@ class CppParser:
 #        newFunction.rebuildGraph()
 #        print("Done ",len(newFunction.graph.nodes) )
 #        newFunction.analysePools()
-        newFunction.findDeadEnds()
-#        newFunction.rebuildGraph()
 #        newFunction.findDeadEnds()
-#        newFunction.greedyScheme()
+#        newFunction.rebuildGraph()
+#        newFunction.greedySchemeSum()
+#        newFunction.rebuildGraph()
+        newFunction.findDeadEnds()
+        newFunction.rebuildGraph()
+#        newFunction.greedySchemeGlobal()
+#        newFunction.greedySchemeSum()
+
 #        newFunction.dumpNodeFormData('+175op', "beforeRebuild.log")
 #        newFunction.cleanForms()
-        newFunction.rebuildGraph()
-        newFunction.findAlternativePathProt()
+#        newFunction.rebuildGraph()
+#        newFunction.findDeadEnds()
+#        newFunction.rebuildGraph()
+#        newFunction.findAlternativePathProt()
 #        newFunction.findClusterSubgraphs(acceptableOperators = [ "+", "-", "*", None ], acceptableKinds = [ "middle"  ] )
 #        print("szukam slepych uliczek")
 #        newFunction.findDeadEnds()
@@ -83,7 +90,7 @@ class CppParser:
 #        print("Done ",len(newFunction.graph.nodes) )
         
     def rewriteCppFile(self, destiny):
-        if not self.functions:
+        if not self.function:
             return
         
         destinyFile = open(destiny, 'w')
@@ -101,17 +108,17 @@ class CppParser:
             
         cppF.close()
         
-        function = self.functions[0]
+        function = self.function
         
         function.writeFunctionFromGraph( function.name , destinyFile)
         
         destinyFile.close()
         
     def writeTest(self, testFilename , testCase = "prediction" ):
-        if not self.functions:
+        if self.function == None:
             return
         
-        newFunction = self.functions[0]
+        newFunction = self.function
         
         testFile = open(testFilename ,'w')
         
@@ -332,7 +339,10 @@ class CppParser:
 if __name__ == "__main__":
 #    testFile = "testData/short.cpp"
 #    testFile = "testData/d2_ne_ss_AA.ey.cpp"
-    testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_pppp_AA.ey.cpp"
+#    testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_pdpd_AB.ey.cpp"
+    testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_psss_AA.ey.cpp"
+#    testFile = "/home/michal/Projects/hessianIsomorphism/testData/gto_d1_kit/d_ee_dddd.ey.cpp"
+#    testFile = "/home/michal/Projects/hessianIsomorphism/testData/vneGradients/d_ne_dd_A0.ey.cpp"
 #    testFile = "/home/michal/Projects/niedoida/gto_d1_kit/src/d_ee_dddd_A3.ey.cpp"
 #    testFile = "testData/d2_ee_ppps_AA.ey.cpp"
     
@@ -341,6 +351,7 @@ if __name__ == "__main__":
 #    cppParser.saveGraphFunction()
 #    cppParser.loadGraphFunction()
     cppParser.writeTest("dupa.cpp", testCase="prediction")
+#    cppParser.writeTest("dupa.cpp", testCase="performance")
     
     
     

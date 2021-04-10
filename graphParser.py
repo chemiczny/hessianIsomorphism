@@ -29,6 +29,8 @@ notCanonicalNode2key - istotne dla wierzcholkow, dla ktorych generowane sa wierz
 class GraphParser:
     def __init__(self, source = None, lastLine = None):
         self.name = None
+        
+        self.externalFunctionNames = set([])
         self.arguments = []
         
         self.scrLog = "graphParser.log"
@@ -60,6 +62,8 @@ class GraphParser:
         
         self.forcePrimeLevel = 0
         self.strongDivisionReduction = False
+        
+        self.constantPrefix = "cnst"
         
         if source and lastLine:
             self.read(source, lastLine)
@@ -162,7 +166,6 @@ class GraphParser:
             beforeEq = lineS[0].strip()
             afterEq = lineS[1].strip()
         
-            
             outputInLine = self.outputInLine(beforeEq)
             
             if not "//" in line and eq != "" and "double" in line and not outputInLine:
@@ -204,8 +207,11 @@ class GraphParser:
                 expr = expr.replace(";", "")
                 newVar = beforeEq
                 
-                argNumber = int( newVar.split("[")[1].replace("]","") )
-                self.maxOutputSize = max(self.maxOutputSize, argNumber)
+                try:
+                    argNumber = int( newVar.split("[")[1].replace("]","") )
+                    self.maxOutputSize = max(self.maxOutputSize, argNumber)
+                except:
+                    pass
                 
                 bottomNode = self.insertExpression2Graph(expr)
                 if "variables" in self.graph.nodes[bottomNode]:
@@ -239,7 +245,8 @@ class GraphParser:
             
     def insertExpression2Graph(self, expr):
         exprSplit = list(shlex.shlex(expr))
-        
+#        print("jazda")
+#        print(expr)
         fixedExprList = []
         
         tokenIndex = 0
@@ -324,18 +331,32 @@ class GraphParser:
                 statusStack[tokenStackIndex] = "low"
                 
                 if actualStatus == "high":
+                    lastToken = tokenStack[tokenStackIndex][-1]
+                    if lastToken == "*" and token == "-":
+                        print("cisne procedure")
+                        statusStack[tokenStackIndex] = "high"
+                        nextToken = exprSplit[tokenIndex+1]
+                        afterNextToken = exprSplit[tokenIndex+2]
+                        if afterNextToken == ".":
+                            raise Exception("Not implemented yet!")
+                            
+                        tokenStack[tokenStackIndex].append( "(-"+nextToken+")" )
+                        tokenIndex += 2
+                        continue
+                    
                     tokenStack[tokenStackIndex].append(")")
             
                     
             tokenStack[tokenStackIndex].append(token)
             tokenIndex += 1
-        
+#        print(tokenStack)
         fixedExprList = tokenStack[0]
         if statusStack[0] == "high":
             fixedExprList.append(")")
         finalExpr = "".join(fixedExprList)
         self.lastBrackets = finalExpr
         self.lastTokenStack = tokenStack
+#        print(finalExpr)
         exprSplit = list(shlex.shlex(finalExpr))
         
         fixedExprList = []
@@ -365,7 +386,7 @@ class GraphParser:
             
             tokenIndex += 1
             fixedExprList.append(token)
-        
+#        print(fixedExprList)
         return self.parseExpression(fixedExprList)
         
     def generateCanonicalForm(self, operator, inputs ):
@@ -531,7 +552,6 @@ class GraphParser:
             
         else:
             simpleKey = "_".join(sorted(inputs)) + "_"+operatorName
-            
             if simpleKey in self.notCanonicalKey2Node and not forceNewNode:
                 return self.notCanonicalKey2Node[simpleKey]
         
@@ -636,6 +656,9 @@ class GraphParser:
                 
                 node = self.parseExpression( subExpr )
                     
+#                print(exprSplit)
+#                print(exprSplit[tokenIndex+1:])
+#                print(token, subExpr)
                 currentNode = self.insertNewOperator( token, [ currentNode, node] , "infix" )
                 
                 
@@ -681,7 +704,7 @@ class GraphParser:
                 subExpr = self.getNextNode( exprSplit[tokenIndex:] )
                 tokenIndex += len(subExpr)-1
                 subExpr = subExpr[1:-1]
-                
+#                print(subExpr)
                 node = self.parseExpression( subExpr )
                     
                 if not currentNode:
@@ -778,8 +801,8 @@ class GraphParser:
             
             if not variables2reuse or predecessorsNo == 1:
                 self.graph.nodes[node]["newDefinition"] = True
-                if not nodeVariable or "dupa" in str(nodeVariable): #zeby nie powtorzyc nazwy zmiennych np podczas rebuildu grafu
-                    self.graph.nodes[node]["variable"] = "dupa"+str(constantIndex)
+                if not nodeVariable or self.constantPrefix in str(nodeVariable): #zeby nie powtorzyc nazwy zmiennych np podczas rebuildu grafu
+                    self.graph.nodes[node]["variable"] = self.constantPrefix+str(constantIndex)
                     constantIndex += 1
                     
             else:
@@ -971,27 +994,30 @@ class GraphParser:
                 symmetry = oldGraph.nodes[node]["symmetric"]
                 inputsList = self.prepareInputList(oldGraph, node)
                 
-                if "form" in oldGraph.nodes[node]:
-                    usedOldForms += 1
-                    if symmetry:
-                        newNode = self.insertNewOperator( oldGraph.nodes[node]["operator"], 
-                                                         inputsList , oldGraph.nodes[node]["fix"], False, oldGraph.nodes[node]["form"] )
-                    else:
-                        newNode = self.insertNewAssimetricOperator(oldGraph.nodes[node]["operator"], 
-                                                                   inputsList, oldGraph.nodes[node]["fix"], False, oldGraph.nodes[node]["form"] )
+#                if "form" in oldGraph.nodes[node]:
+#                    usedOldForms += 1
+#                    if symmetry:
+#                        newNode = self.insertNewOperator( oldGraph.nodes[node]["operator"], 
+#                                                         inputsList , oldGraph.nodes[node]["fix"], False, oldGraph.nodes[node]["form"] )
+#                    else:
+#                        newNode = self.insertNewAssimetricOperator(oldGraph.nodes[node]["operator"], 
+#                                                                   inputsList, oldGraph.nodes[node]["fix"], False, oldGraph.nodes[node]["form"] )
+#                else:
+                if symmetry:
+                    newNode = self.insertNewOperator( oldGraph.nodes[node]["operator"], 
+                                                     inputsList , oldGraph.nodes[node]["fix"] )
                 else:
-                    if symmetry:
-                        newNode = self.insertNewOperator( oldGraph.nodes[node]["operator"], 
-                                                         inputsList , oldGraph.nodes[node]["fix"] )
-                    else:
-                        newNode = self.insertNewAssimetricOperator(oldGraph.nodes[node]["operator"], 
-                                                                   inputsList, oldGraph.nodes[node]["fix"] )
+                    newNode = self.insertNewAssimetricOperator(oldGraph.nodes[node]["operator"], 
+                                                               inputsList, oldGraph.nodes[node]["fix"] )
                 
                     
                 self.graph.nodes[newNode]["variable"] = oldGraph.nodes[node]["variable"]
                 self.graph.nodes[newNode]["kind"] = oldGraph.nodes[node]["kind"]
                 if "variables" in oldGraph.nodes[node]:
                     self.graph.nodes[newNode]["variables"] = oldGraph.nodes[node]["variables"]
+                    
+                if "origin" in oldGraph.nodes[node]:
+                    self.graph.nodes[newNode]["origin"] = oldGraph.nodes[node]["origin"]
                     
                 if "eq" in oldGraph.nodes[node]:
                     self.graph.nodes[newNode]["eq"] = oldGraph.nodes[node]["eq"]
@@ -1011,6 +1037,88 @@ class GraphParser:
         print("stan operatorow: ")
         print(self.operators)
         self.log("Rebuild graph finished")
+        
+    def markNodesOrigin(self):
+        for node in self.graph.nodes:
+            self.graph.nodes[node]["origin"] = set([self.name])
+            
+    def analyseOrigin(self):
+        originDict = { self.name : 0 , "common" : 0 }
+        
+        for extName in self.externalFunctionNames:
+            originDict[extName] = 0
+            
+        for node in self.graph.nodes:
+            if "origin" in self.graph.nodes[node]:
+                originSet = self.graph.nodes[node]["origin"]
+                
+                if len(originSet) > 1:
+                    originDict["common"] += 1
+                else:
+                    originElement = list(originSet)[0]
+                    originDict[originElement] += 1
+                    
+        print(originDict)
+        
+    def mergeWithExternalGraph(self, externalGraph, externalName):
+        self.log("Merging graph start...")
+       
+        self.externalFunctionNames.add(externalName)
+        nodes = list(nx.topological_sort(externalGraph))
+
+        for node in nodes:
+            kind = externalGraph.nodes[node]["kind"]
+            
+            if kind == "input":
+                newNode = node
+                variable = externalGraph.nodes[node]["variable"]
+                floatNode = isfloat( variable )
+                if not newNode in self.graph.nodes and not floatNode:
+                    raise Exception("Not recognised input node from external graph")
+                    
+                elif not newNode in self.graph.nodes and floatNode:
+                    self.graph.add_node(variable, variable = variable, kind = "input", level = 0)
+                    self.createPrimeForm(variable)
+                    
+            elif kind == "integer":
+                newNode = externalGraph.nodes[node]["variable"]
+                variable = externalGraph.nodes[node]["variable"]
+                if not newNode in self.graph.nodes:
+                    self.graph.add_node(variable, variable = variable, kind = "integer", level = 0)
+                    self.createIntegerForm(variable, int(variable))
+            else:
+                symmetry = externalGraph.nodes[node]["symmetric"]
+                inputsList = self.prepareInputList(externalGraph, node)
+                
+                if symmetry:
+                    newNode = self.insertNewOperator( externalGraph.nodes[node]["operator"], 
+                                                     inputsList , externalGraph.nodes[node]["fix"] )
+                else:
+                    newNode = self.insertNewAssimetricOperator(externalGraph.nodes[node]["operator"], 
+                                                               inputsList, externalGraph.nodes[node]["fix"] )
+                
+                
+                kind = externalGraph.nodes[node]["kind"]
+                self.graph.nodes[newNode]["kind"] =  kind
+                if kind == "output":
+                    self.graph.nodes[newNode]["variable"] = externalGraph.nodes[node]["variable"]
+                
+                if "variables" in externalGraph.nodes[node]:
+                    self.graph.nodes[newNode]["variables"] = externalGraph.nodes[node]["variables"]
+                    
+                if "origin" in self.graph.nodes[newNode]:
+                    self.graph.nodes[newNode]["origin"].add(externalName)
+                else:
+                    self.graph.nodes[newNode]["origin"] = set([externalName])
+                    
+                if "eq" in externalGraph.nodes[node]:
+                    self.graph.nodes[newNode]["eq"] = externalGraph.nodes[node]["eq"]
+                    
+                externalGraph.nodes[node]["variable"] = newNode
+                
+        print("stan operatorow: ")
+        print(self.operators)
+        self.log("Merging graphs finished")
         
     def prepareInputList(self, graph, node):
         predecessors = list(graph.predecessors( node))

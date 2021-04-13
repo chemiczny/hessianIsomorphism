@@ -8,6 +8,7 @@ Created on Mon May 20 10:34:48 2019
 import networkx as nx
 import shlex
 import matplotlib.pyplot as plt
+from collections import defaultdict
 
 from canonical import CanonicalSubformFactory, CanonicalForm
 from canonical import addForms, multiplyForms, subtractForms, reverseFormSign
@@ -1043,22 +1044,40 @@ class GraphParser:
             self.graph.nodes[node]["origin"] = set([self.name])
             
     def analyseOrigin(self):
-        originDict = { self.name : 0 , "common" : 0 }
-        
-        for extName in self.externalFunctionNames:
-            originDict[extName] = 0
+        originDict = defaultdict(int)
+        interfaceDict = defaultdict(int)
             
         for node in self.graph.nodes:
             if "origin" in self.graph.nodes[node]:
                 originSet = self.graph.nodes[node]["origin"]
+                key = "-".join(sorted(list( originSet )))
                 
-                if len(originSet) > 1:
-                    originDict["common"] += 1
-                else:
-                    originElement = list(originSet)[0]
-                    originDict[originElement] += 1
+                originDict[key] += 1
+                
+                successors = list(self.graph.successors( node))
+                
+                if not successors:
+                    continue
+                
+                sKeys = set([])
+                for s in successors:
+                    originSet = self.graph.nodes[s]["origin"]
+                    SKey = "-".join(sorted(list( originSet ))) 
+                    sKeys.add(SKey)
                     
-        print(originDict)
+                if len(sKeys) == 1 and list(sKeys)[0] == key:
+                    continue
+                
+                interfaceKey = key + ":" + "+".join(sorted(list(sKeys)))
+                interfaceDict[interfaceKey] += 1
+                    
+        print("Origin status:")
+        for key in originDict:
+            print(key, originDict[key])
+            
+        print("Interface nodes status:")
+        for key in interfaceDict:
+            print(key, interfaceDict[key])
         
     def mergeWithExternalGraph(self, externalGraph, externalName):
         self.log("Merging graph start...")

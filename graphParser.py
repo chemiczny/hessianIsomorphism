@@ -59,7 +59,7 @@ class GraphParser:
         self.createIntegerForm("1", 1)
         self.constants = [ "Pi" ]
         
-        self.debug = False
+        self.debug = True
         
         self.forcePrimeLevel = 0
         self.strongDivisionReduction = False
@@ -988,6 +988,7 @@ class GraphParser:
             if kind == "input":
                 newNode = node
                 self.graph.add_node(newNode, variable = oldGraph.nodes[node]["variable"] , kind = "input",  level = 0, form = oldGraph.nodes[node]["form"] )
+                self.key2uniqueOperatorNodes[oldGraph.nodes[node]["form"].generateKey()] = newNode
             elif kind == "integer":
                 newNode = oldGraph.nodes[node]["variable"]
                 self.graph.add_node(newNode, variable = oldGraph.nodes[node]["variable"] , kind = "integer",  level = 0, form = oldGraph.nodes[node]["form"] )

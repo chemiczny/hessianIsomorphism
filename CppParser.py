@@ -53,8 +53,12 @@ class CppParser:
 #        newFunction.rebuildGraph()
 #        newFunction.greedySchemeSum()
 #        newFunction.rebuildGraph()
+#        newFunction.strongDivisionReduction = True
         newFunction.findDeadEnds()
         newFunction.rebuildGraph()
+#        newFunction.strongDivisionReduction = True
+#        newFunction.rebuildGraph()
+#        newFunction.findDeadEnds()
 #        newFunction.greedySchemeGlobal()
 #        newFunction.greedySchemeSum()
 #        newFunction.greedyScheme()
@@ -231,9 +235,12 @@ class CppParser:
                 testFile.write("\t\tdiff = std::abs("+referenceVar + " - " + testVar + " );\n " )
                 testFile.write("\t\tif ( std::abs("+referenceVar+") >  1e-8 ) {\n")
                 testFile.write("\t\t\ttestsExecuted += 1;\n")
-                testFile.write("\t\t\tif ( diff > 0.000001*std::abs("+referenceVar+")  ) \n")
+                testFile.write("\t\t\tif ( diff > 0.000001*std::abs("+referenceVar+")  ) { \n")
                 testFile.write("\t\t\t\ttestsFailed += 1;\n")
-                testFile.write("\t\t}\n")
+                testFile.write('\t\t\t\tstd::cout<<"obtained vs reference"<<std::endl;\n')
+                testFile.write('\t\t\t\tstd::cout<<'+testVar+'<<" "<<'+referenceVar+'<<std::endl;\n')
+                testFile.write('\t\t\t\tstd::cout<<"'+varName+'"<<" "<<i<<std::endl;\n')
+                testFile.write("\t\t}}\n")
                 testFile.write("\t}\n\n")
                 
             testFile.write("""
@@ -304,7 +311,9 @@ if __name__ == "__main__":
 #    testFile = "testData/d2_ne_ss_AA.ey.cpp"
 #    testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_pdpd_AB.ey.cpp"
 #    testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_psss_AA.ey.cpp"
-    testFile = "testData/overlapGradients/d_overlap1.ey.cpp"
+#    testFile = "testData/overlapGradients/d_overlap10.ey.cpp"
+    testFile = "overlapGradientParsedForm/d_overlap10.ey.cpp"
+#    testFile = "testData/d1_ee/d_ee_ppss_A4.ey.cpp"
 #    testFile = "/home/michal/Projects/hessianIsomorphism/testData/gto_d1_kit/d_ee_dddd.ey.cpp"
 #    testFile = "/home/michal/Projects/hessianIsomorphism/testData/vneGradients/d_ne_dd_A0.ey.cpp"
 #    testFile = "/home/michal/Projects/niedoida/gto_d1_kit/src/d_ee_dddd_A3.ey.cpp"

@@ -59,7 +59,7 @@ class GraphParser:
         self.createIntegerForm("1", 1)
         self.constants = [ "Pi" ]
         
-        self.debug = True
+        self.debug = False
         
         self.forcePrimeLevel = 0
         self.strongDivisionReduction = True
@@ -897,7 +897,7 @@ class GraphParser:
                     command = inputList[0]+operator
                 else:
                     raise Exception("Uknown operator type")
-                    
+                #TODO poprawic czytelnosc
                 if succesorsNo != 1 or len(command) > 80 or firstFold != 1 or self.graph.nodes[node]["kind"] == "output":
                     if self.graph.nodes[node]["kind"] == "middle":
                         if self.graph.nodes[node]["newDefinition"]:
@@ -1018,8 +1018,12 @@ class GraphParser:
                     
                 self.graph.nodes[newNode]["variable"] = oldGraph.nodes[node]["variable"]
                 self.graph.nodes[newNode]["kind"] = oldGraph.nodes[node]["kind"]
+                #tu jest blad
                 if "variables" in oldGraph.nodes[node]:
-                    self.graph.nodes[newNode]["variables"] = oldGraph.nodes[node]["variables"]
+                    if "variables" in self.graph.nodes[newNode]:
+                        self.graph.nodes[newNode]["variables"] += oldGraph.nodes[node]["variables"]
+                    else:
+                        self.graph.nodes[newNode]["variables"] = oldGraph.nodes[node]["variables"]
                     
                 if "origin" in oldGraph.nodes[node]:
                     self.graph.nodes[newNode]["origin"] = oldGraph.nodes[node]["origin"]

@@ -11,6 +11,7 @@ functions2operations = {}
 
 cppF = open("dupa.cpp", 'r')
 
+
 line = cppF.readline()
 
 while line and not "void" in line:
@@ -40,7 +41,7 @@ while line and not "void" in line:
 #    operators["double"] +=  line.count("double")
     lineNo += 1
     
-print(key, lineNo)
+#print(key, lineNo)
 
 functions2operations[key] = operators
 
@@ -50,7 +51,7 @@ operators = defaultdict(int)
 
 line = cppF.readline()
 lineNo = 0
-while line:
+while not "main" in line:
     line = cppF.readline()
     
     plusNo = line.count("+")
@@ -67,7 +68,7 @@ while line:
     operators["exp"] += line.count("exp")
 #    operators["double"] +=  line.count("double")
     lineNo += 1
-print(key, lineNo)
+#print(key, lineNo)
 
 functions2operations[key] = operators
 cppF.close()

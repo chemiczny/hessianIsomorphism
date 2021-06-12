@@ -7,7 +7,7 @@ Created on Thu Apr 11 15:58:16 2019
 """
 from graphOptimizer import GraphOptimizer
 #from isomorphCollection import IsomorphCollection
-
+from itertools import combinations
 import pickle
 #import matplotlib.pyplot as plt
 #from random import random
@@ -57,6 +57,7 @@ class CppParser:
         newFunction.rebuildGraph()
 #        newFunction.greedySchemeGlobal()
 #        newFunction.greedySchemeSum()
+#        newFunction.greedyScheme()
 
 #        newFunction.dumpNodeFormData('+175op', "beforeRebuild.log")
 #        newFunction.cleanForms()
@@ -114,9 +115,17 @@ class CppParser:
         
         destinyFile.close()
         
-    def writeTest(self, testFilename , testCase = "prediction" ):
+    def writeTest(self, testFilename , variablesValues,  testCase = "prediction" ):
         if self.function == None:
+            print("No function to test")
             return
+        
+        varNames = list(variablesValues.keys())
+        for var1, var2 in combinations(varNames, 2):
+            if var1 in var2 or var2 in var1:
+                print("Variables overlapping!")
+                print(var1, var2)
+                return
         
         newFunction = self.function
         
@@ -148,145 +157,99 @@ class CppParser:
 #        newFunction.histogramOfLevels("/")
 #        newFunction.histogramOfLevels("-")
 #        newFunction.analyseSubGraphOverlaping()
-        arraysSize = str(newFunction.maxOutputSize+1)
-        print("najwiekszy wymiar tablicy wyjsciowej: ",newFunction.maxOutputSize+1)
+#        arraysSize = str(newFunction.maxOutputSize+1)
+#        print("najwiekszy wymiar tablicy wyjsciowej: ",newFunction.maxOutputSize+1)
         testFile.write("\n\nint main() { \n")
         
-        arraysNo = len(newFunction.outputs)
-        
-        arraysRef = [ "hxx", "hxy", "hxz", "hyx", "hyy", "hyz" , "hzx", "hzy", "hzz"  ]
-        arrays2Test = [ name[0] + "Test" + name[1:] for name in arraysRef  ]
-        
 #        arraySize = "[27]"
-        testFile.write( '\tdouble ae = 1.1; \n')
-        testFile.write( '\tdouble xA = 1.1;\n')
-        testFile.write( '\tdouble yA = 3.3;\n')
-        testFile.write( '\tdouble zA = 1.6;\n')
-        testFile.write( '\tdouble be = 1.7;\n')
-        testFile.write( '\tdouble xB = -0.9;\n')
-        testFile.write( '\tdouble yB = 0.3;\n')
-        testFile.write( '\tdouble zB = 0.6;\n')
-        testFile.write( '\tdouble ce = 1.3;\n')
-        testFile.write( '\tdouble xC = 1.4;\n')
-        testFile.write( '\tdouble yC = 1.8;\n')
-        testFile.write( '\tdouble zC = 1.2;\n')
-        testFile.write( '\tdouble de = 1.3;\n')
-        testFile.write( '\tdouble xD = -1.1;\n')
-        testFile.write( '\tdouble yD = 1.9;\n')
-        testFile.write( '\tdouble zD = 1.3;\n')
-        testFile.write( '\tdouble bs[] = { 0.7, 1.3, 1.5, 1.1, 0.8, 0.2, 0.15, 0.12, 0.1, 0.05};\n')
-        testFile.write( '\tdouble hxx['+arraysSize+'] = {0};\n')
-        testFile.write( '\tdouble hxy['+arraysSize+'] = {0};\n')
-        testFile.write( '\tdouble hxz['+arraysSize+'] = {0};\n')
-        testFile.write( '\tdouble hyx['+arraysSize+'] = {0};\n')
-        testFile.write( '\tdouble hyy['+arraysSize+'] = {0};\n')
-        testFile.write( '\tdouble hyz['+arraysSize+'] = {0};\n')
-        testFile.write( '\tdouble hzx['+arraysSize+'] = {0};\n')
-        testFile.write( '\tdouble hzy['+arraysSize+'] = {0};\n')
-        testFile.write( '\tdouble hzz['+arraysSize+'] = {0};\n')
         
-        testFile.write( '\tdouble hTestxx['+arraysSize+'] = {0};\n')
-        testFile.write( '\tdouble hTestxy['+arraysSize+'] = {0};\n')
-        testFile.write( '\tdouble hTestxz['+arraysSize+'] = {0};\n')
-        testFile.write( '\tdouble hTestyx['+arraysSize+'] = {0};\n')
-        testFile.write( '\tdouble hTestyy['+arraysSize+'] = {0};\n')
-        testFile.write( '\tdouble hTestyz['+arraysSize+'] = {0};\n')
-        testFile.write( '\tdouble hTestzx['+arraysSize+'] = {0};\n')
-        testFile.write( '\tdouble hTestzy['+arraysSize+'] = {0};\n')
-        testFile.write( '\tdouble hTestzz['+arraysSize+'] = {0};\n')
+        for varName in newFunction.inputs:
+            if not varName in variablesValues:
+                print("Missing variable!")
+                print(varName)
+            variableType = newFunction.inputs[varName].type
+            if "double*" in variableType:
+                testFile.write("\tdouble "+varName + "[] = "+str(variablesValues[varName]) + " ;\n"  )
+            else:
+                testFile.write("\t"+variableType+" "+varName + " = "+str(variablesValues[varName]) + " ;\n"  )
+
+        testFile.write("\n")
+        for varName in newFunction.outputs:
+            maxIndex = 0
+            for value in newFunction.outputIndexes[varName]:
+                valueReplaced = value
+                for varNam in varValues:
+                    valueReplaced = valueReplaced.replace( varNam, str(varValues[varNam]) )
+                integerValue = eval( valueReplaced)
+                
+                maxIndex = max(maxIndex, integerValue)
+            arraySize =  str(maxIndex + 1)
+            
+            testFile.write("\tdouble " + varName + "_ref["+arraySize+"] = {0};\n" )
+            testFile.write("\tdouble " + varName + "_2test["+arraySize+"] = {0};\n" )
+            
+        testFile.write("\n")
+            
+        referenceArgumentsList = []
+        testArgumentsList = []
+        
+        for argument in newFunction.arguments:
+            varName = argument.name
+            if varName in newFunction.outputs:
+                referenceArgumentsList.append( varName + "_ref" )
+                testArgumentsList.append(varName + "_2test")
+            else:
+                referenceArgumentsList.append( varName )
+                testArgumentsList.append(varName)
         
         if testCase == "prediction":
-        
-            testFile.write(newFunction.name+"( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, "+" , ".join(arraysRef[:arraysNo])+" );\n")
-            testFile.write("dupa( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, "+" , ".join(arrays2Test[:arraysNo])+" );\n")
-            testFile.write("int valuesChecked[9] = {0};\n")
-            testFile.write("for ( int i = 0; i < "+arraysSize+"; i++) {\n")
+            
+            testFile.write("\t"+newFunction.name+"("+" , ".join(referenceArgumentsList)+" );\n")
+            testFile.write("\tdupa( "+ " , ".join(testArgumentsList) +" );\n\n")
+            
+            testFile.write("\tint testsFailed = 0;\n")
+            testFile.write("\tint testsExecuted = 0;\n")
+            testFile.write("\tint allValues = 0;\n")
+            testFile.write("\tdouble diff;\n\n")
+            for varName in newFunction.outputs:
+                indexValues = []
+                
+                for value in newFunction.outputIndexes[varName]:
+                    valueReplaced = value
+                    for varNam in varValues:
+                        valueReplaced = valueReplaced.replace( varNam, str(varValues[varNam]) )
+                    
+                    indexValues.append(str(eval( valueReplaced)))
+                    
+                testFile.write("\tint indexes_"+varName + "[] = {" + " , ".join(indexValues) + " };\n"  )
+                testFile.write("\tallValues += "+str(len(indexValues))+";\n")
+                testFile.write("\tfor ( int i = 0; i < "+str(len(indexValues))+"; i++) {\n")
+                
+                referenceVar = varName+"_ref[indexes_"+varName + "[i]]"
+                testVar = varName+"_2test[indexes_"+varName + "[i]]"
+                
+                testFile.write("\t\tdiff = std::abs("+referenceVar + " - " + testVar + " );\n " )
+                testFile.write("\t\tif ( std::abs("+referenceVar+") >  1e-8 ) {\n")
+                testFile.write("\t\t\ttestsExecuted += 1;\n")
+                testFile.write("\t\t\tif ( diff > 0.000001*std::abs("+referenceVar+")  ) \n")
+                testFile.write("\t\t\t\ttestsFailed += 1;\n")
+                testFile.write("\t\t}\n")
+                testFile.write("\t}\n\n")
+                
             testFile.write("""
-              double diffxx = std::abs(hxx[i] - hTestxx[i]);
-              double diffxy = std::abs(hxy[i] - hTestxy[i]);
-              double diffxz = std::abs(hxz[i] - hTestxz[i]);
-              
-              double diffyx = std::abs(hyx[i] - hTestyx[i]);
-              double diffyy = std::abs(hyy[i] - hTestyy[i]);
-              double diffyz = std::abs(hyz[i] - hTestyz[i]);
-              
-              double diffzx = std::abs(hzx[i] - hTestzx[i]);
-              double diffzy = std::abs(hzy[i] - hTestzy[i]);
-              double diffzz = std::abs(hzz[i] - hTestzz[i]);
-              
-              if ( std::abs(hxx[i]) > {lowValueThreshold} ) {{
-                      valuesChecked[0] += 1;
-                      if ( diffxx > {accuracyThreshold}*std::abs(hxx[i])  )
-                          std::cout<<"ERROR XX !!! "<<hxx[i]<<" "<<hTestxx[i]<<" "<<i<<std::endl;
-              }}
-              
-              if ( std::abs(hxy[i]) > {lowValueThreshold} ) {{
-                      valuesChecked[1] += 1;
-                      if ( diffxy > {accuracyThreshold}*std::abs(hxy[i])  )
-                          std::cout<<"ERROR XY !!! "<<hxy[i]<<" "<<hTestxy[i]<<" "<<i<<std::endl;
-              }}
-              
-              if ( std::abs(hxz[i]) > {lowValueThreshold} ) {{
-                      valuesChecked[2] += 1;
-                      if ( diffxz > {accuracyThreshold}*std::abs(hxz[i])  )
-                          std::cout<<"ERROR XZ !!! "<<hxz[i]<<" "<<hTestxz[i]<<" "<<i<<std::endl;
-              }}
-              
-              if ( std::abs(hyx[i]) > {lowValueThreshold} ) {{
-                      valuesChecked[3] += 1;
-                      if ( diffyx > {accuracyThreshold}*std::abs(hyx[i]) )
-                          std::cout<<"ERROR YX !!! "<<hyx[i]<<" "<<hTestyx[i]<<" "<<i<<std::endl;
-              }}
-              
-              if ( std::abs(hyy[i]) > {lowValueThreshold} ) {{
-                      valuesChecked[4] += 1;
-                      if ( diffyy > {accuracyThreshold}*std::abs(hyy[i])  )
-                          std::cout<<"ERROR YY !!! "<<hyy[i]<<" "<<hTestyy[i]<<" "<<i<<std::endl;
-              }}
-              
-              if ( std::abs(hyz[i]) > {lowValueThreshold} ) {{
-                      valuesChecked[5] += 1;
-                      if ( diffyz > {accuracyThreshold}*std::abs(hyz[i])  )
-                          std::cout<<"ERROR YZ !!! "<<hyz[i]<<" "<<hTestyz[i]<<" "<<i<<std::endl;
-              }}
-
-              if ( std::abs(hzx[i]) > {lowValueThreshold} ) {{
-                      valuesChecked[6] += 1;
-                      if ( diffzx > {accuracyThreshold}*std::abs(hzx[i])  )
-                          std::cout<<"ERROR ZX !!! "<<hzx[i]<<" "<<hTestzx[i]<<" "<<i<<std::endl;
-              }}
-              
-              if ( std::abs(hzy[i]) > {lowValueThreshold} ) {{
-                      valuesChecked[7] += 1;
-                      if ( diffzy > {accuracyThreshold}*std::abs(hzy[i])  )
-                          std::cout<<"ERROR ZY !!! "<<hzy[i]<<" "<<hTestzy[i]<<" "<<i<<std::endl;
-              }}
-              
-              if ( std::abs(hzz[i]) > {lowValueThreshold} ) {{
-                      valuesChecked[8] += 1;
-                      if ( diffzz > {accuracyThreshold}*std::abs(hzz[i]) )
-                          std::cout<<"ERROR ZZ !!! "<<hzz[i]<<" "<<hTestzz[i]<<" "<<i<<std::endl;
-              }}
-              
-            }}
-              
-            int totalChecked = 0;
-            for ( int i = 0; i < 9 ; i++ ) {{
-                std::cout<<i<<" Values checked: "<<valuesChecked[i]<<" of: "<<"{totalSize}"<<std::endl;
-                totalChecked += valuesChecked[i];
-            }}
-            std::cout<<"Total values checked: "<<totalChecked<<std::endl;
-                           """.format( lowValueThreshold = 1e-8, accuracyThreshold = 0.000001, totalSize = int(arraysSize)   ))
+                std::cout<<"Values checked: "<<allValues<<" of: "<<allValues<<std::endl;
+                std::cout<<"Tests failed: "<<testsFailed<<::std::endl;
+                """)
         else:
             testFile.write("""
             const clock_t begin_old_time = clock();
             for( int i = 0; i < 1000000 ; i ++ )\n""")
-            testFile.write("     "+newFunction.name+"( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, "+" , ".join(arraysRef[:arraysNo])+" );\n")
+            testFile.write("     "+newFunction.name+"("+" , ".join(referenceArgumentsList)+" );\n")
             testFile.write("""
             const clock_t old_time = clock() - begin_old_time;
             const clock_t begin_new_time = clock();
             for( int i = 0; i < 1000000 ; i ++ )\n""")
-            testFile.write("     dupa( ae, xA, yA, zA,be,  xB, yB, zB, ce, xC, yC, zC, de, xD, yD, zD, bs, "+" , ".join(arrays2Test[:arraysNo])+"  );\n")
+            testFile.write("     dupa( "+ " , ".join(testArgumentsList) +" );\n")
             testFile.write("""
             const clock_t new_time = clock() - begin_new_time;
             std::cout<<"stary czas: "<<old_time<<std::endl;
@@ -340,7 +303,8 @@ if __name__ == "__main__":
 #    testFile = "testData/short.cpp"
 #    testFile = "testData/d2_ne_ss_AA.ey.cpp"
 #    testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_pdpd_AB.ey.cpp"
-    testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_psss_AA.ey.cpp"
+#    testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_psss_AA.ey.cpp"
+    testFile = "testData/overlapGradients/d_overlap1.ey.cpp"
 #    testFile = "/home/michal/Projects/hessianIsomorphism/testData/gto_d1_kit/d_ee_dddd.ey.cpp"
 #    testFile = "/home/michal/Projects/hessianIsomorphism/testData/vneGradients/d_ne_dd_A0.ey.cpp"
 #    testFile = "/home/michal/Projects/niedoida/gto_d1_kit/src/d_ee_dddd_A3.ey.cpp"
@@ -350,7 +314,14 @@ if __name__ == "__main__":
     cppParser.parse()
 #    cppParser.saveGraphFunction()
 #    cppParser.loadGraphFunction()
-    cppParser.writeTest("dupa.cpp", testCase="prediction")
+#    varValues  = { "ae" : 1.1, "xA" : 1.1, "yA" : 3.3, "zA" : 1.6, "be" : 1.7,
+#                  "xB" : -0.9, "yB" : 0.3, "zB" : 0.6, "ce" : 1.3, "xC" : 1.4, 
+#                  "yC" : 1.8, "zC" : 1.2, "de" : 1.3, "xD" : -1.1, "yD" : 1.9, 
+#                  "zD" : 1.3, "bs" : "{ 0.7, 1.3, 1.5, 1.1, 0.8, 0.2, 0.15, 0.12, 0.1, 0.05}" }
+    
+    varValues  = { "ae" : 1.1, "xAB" : 1.1, "yAB" : 3.3, "zAB" : 1.6, "be" : 1.7,
+                  "cc" : 1.3, "matrix_size" : 3, "Ai" : 0, "Bi" : 1}
+    cppParser.writeTest("dupa.cpp", varValues, testCase="prediction")
 #    cppParser.writeTest("dupa.cpp", testCase="performance")
     
     

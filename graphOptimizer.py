@@ -472,6 +472,7 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
         
         for node in nodes2remove:
             canonicalKey = self.graph.nodes[node]["canonicalKey"]
+
             del self.key2uniqueOperatorNodes[canonicalKey]
             
         self.graph.remove_nodes_from(nodes2remove)
@@ -978,6 +979,8 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
 #                    self.createIntegerForm(node, coeff)
 #                    self.graph.nodes[node]["kind"] = "integer"
                     
+#                if coeff == 1:
+#                    return
                 
                 nodeName = str(coeff)
                 if not nodeName in self.graph.nodes:
@@ -1056,6 +1059,7 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
             print("######################")
                   
         form = self.graph.nodes[node]["form"]
+
         subformKey2atomDistribution = generateSubKey2AtomDist(form, self.subformFactory.primes, atomDistribution)
         mostCommonAtom = self.getMostCommonAtom(node, form, subformKey2atomDistribution, atomDistribution)
         
@@ -1085,7 +1089,10 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
                 print(devidedForm.subforms)
             self.graph.nodes[node]["operator"] = "*"
             self.addEdgeOrIncreaseFold(dividerAtomNode, node)
+            #tu jest blad!
             newNode, presentInGraph = self.insertNewOperatorBottomUp("unkNoRest", node, devidedForm)
+            if devidedForm.subforms == { 5 : 1 } and not presentInGraph:
+                print("nie rozpoznaje form atomowych")
 
             if not presentInGraph:
                 if self.debug:

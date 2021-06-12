@@ -50,7 +50,7 @@ class GraphParser:
         
         self.operators = { }
         
-        self.maxOutputSize = -1
+        self.outputIndexes = {}
         
         self.graph = nx.DiGraph()
         self.graph.add_node("Pi",  variable = "Pi", kind = "input", level = 0)
@@ -62,7 +62,7 @@ class GraphParser:
         self.debug = True
         
         self.forcePrimeLevel = 0
-        self.strongDivisionReduction = False
+        self.strongDivisionReduction = True
         
         self.constantPrefix = "cnst"
         
@@ -208,11 +208,14 @@ class GraphParser:
                 expr = expr.replace(";", "")
                 newVar = beforeEq
                 
-                try:
-                    argNumber = int( newVar.split("[")[1].replace("]","") )
-                    self.maxOutputSize = max(self.maxOutputSize, argNumber)
-                except:
-                    pass
+                newVarSpl = newVar.split("[")
+                outputVarName = newVarSpl[0]
+                argNumber = newVarSpl[1].replace("]","") 
+                
+                if not outputVarName in self.outputIndexes:
+                    self.outputIndexes[outputVarName] = []
+                    
+                self.outputIndexes[outputVarName].append(argNumber)
                 
                 bottomNode = self.insertExpression2Graph(expr)
                 if "variables" in self.graph.nodes[bottomNode]:

@@ -127,21 +127,22 @@ class CanonicalForm:
         self.subforms = {}
     
     def generateKey(self):
-        keyList = []
-        
-        for subKey in self.subforms:
-#            print("klucz: ", subKey)
-            coeff = self.subforms[subKey]
-            
-            newKey = str(subKey)
-            
-            if coeff != 1:
-                newKey += "*"+str(coeff)
-            
-            keyList.append( newKey )
-            
-#        print(keyList)
-        return int(hashlib.md5(("+".join(sorted( keyList ))).encode()).hexdigest(), 16)
+        return hash(frozenset(self.subforms.items()))
+#        keyList = []
+#        
+#        for subKey in self.subforms:
+##            print("klucz: ", subKey)
+#            coeff = self.subforms[subKey]
+#            
+#            newKey = str(subKey)
+#            
+#            if coeff != 1:
+#                newKey += "*"+str(coeff)
+#            
+#            keyList.append( newKey )
+#            
+##        print(keyList)
+#        return int(hashlib.md5(("+".join(sorted( keyList ))).encode()).hexdigest(), 16)
 #        return "+".join(sorted( keyList ))
     
     

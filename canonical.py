@@ -6,7 +6,7 @@ Created on Fri Nov 29 11:01:07 2019
 @author: michal
 """
 import pickle
-import hashlib 
+#import hashlib 
 
 class CanonicalSubformFactory:
     def __init__(self):
@@ -35,8 +35,8 @@ def multiplyForms(form1, form2):
     newForm = CanonicalForm()
     
     for s1key in form1.subforms:
+        sub1Coeff = form1.subforms[s1key]
         for s2key in form2.subforms:
-            sub1Coeff = form1.subforms[s1key]
             sub2Coeff = form2.subforms[s2key]
             
             newKey = s1key*s2key
@@ -53,8 +53,7 @@ def multiplyForms(form1, form2):
 def addForms(form1, form2):
     newForm = CanonicalForm()
     
-    for subFormKey in form1.subforms:
-        newForm.subforms[subFormKey] = form1.subforms[subFormKey]
+    newForm.subforms.update(form1.subforms)
     
     for subFormKey in form2.subforms:
         if subFormKey in newForm.subforms:
@@ -62,22 +61,18 @@ def addForms(form1, form2):
         else:
             newForm.subforms[subFormKey] = form2.subforms[subFormKey]
            
-    return removeZeroSubforms(newForm)
+    removeZeroSubforms(newForm)
+    return newForm
             
 def removeZeroSubforms(form):
-    newForm = CanonicalForm()
-    
-    for key in form.subforms:
-        if form.subforms[key] != 0:
-            newForm.subforms[key] = form.subforms[key] 
-            
-    return newForm
+    for key in tuple(form.subforms.keys()):
+        if form.subforms[key] == 0:
+            del form.subforms[key]
 
 def subtractForms(form1, form2):
     newForm = CanonicalForm()
     
-    for subFormKey in form1.subforms:
-        newForm.subforms[subFormKey] = form1.subforms[subFormKey]
+    newForm.subforms.update(form1.subforms)
     
     for subFormKey in form2.subforms:
         if subFormKey in newForm.subforms:
@@ -85,7 +80,9 @@ def subtractForms(form1, form2):
         else:
             newForm.subforms[subFormKey] = -1*form2.subforms[subFormKey]
             
-    return removeZeroSubforms(newForm)
+            
+    removeZeroSubforms(newForm)
+    return newForm
             
 def reverseFormSign(form):
     newForm = CanonicalForm()
@@ -143,6 +140,5 @@ class CanonicalForm:
 #            
 ##        print(keyList)
 #        return int(hashlib.md5(("+".join(sorted( keyList ))).encode()).hexdigest(), 16)
-#        return "+".join(sorted( keyList ))
     
     

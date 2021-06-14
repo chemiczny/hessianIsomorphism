@@ -56,9 +56,9 @@ class CppParser:
 #        newFunction.strongDivisionReduction = True
         newFunction.findDeadEnds()
         newFunction.rebuildGraph()
-#        newFunction.strongDivisionReduction = True
-#        newFunction.rebuildGraph()
-#        newFunction.findDeadEnds()
+        newFunction.strongDivisionReduction = True
+        newFunction.rebuildGraph()
+        newFunction.findDeadEnds()
 #        newFunction.greedySchemeGlobal()
 #        newFunction.greedySchemeSum()
 #        newFunction.greedyScheme()
@@ -182,8 +182,8 @@ class CppParser:
             maxIndex = 0
             for value in newFunction.outputIndexes[varName]:
                 valueReplaced = value
-                for varNam in varValues:
-                    valueReplaced = valueReplaced.replace( varNam, str(varValues[varNam]) )
+                for varNam in variablesValues:
+                    valueReplaced = valueReplaced.replace( varNam, str(variablesValues[varNam]) )
                 integerValue = eval( valueReplaced)
                 
                 maxIndex = max(maxIndex, integerValue)
@@ -220,8 +220,8 @@ class CppParser:
                 
                 for value in newFunction.outputIndexes[varName]:
                     valueReplaced = value
-                    for varNam in varValues:
-                        valueReplaced = valueReplaced.replace( varNam, str(varValues[varNam]) )
+                    for varNam in variablesValues:
+                        valueReplaced = valueReplaced.replace( varNam, str(variablesValues[varNam]) )
                     
                     indexValues.append(str(eval( valueReplaced)))
                     
@@ -312,8 +312,8 @@ if __name__ == "__main__":
 #    testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_pdpd_AB.ey.cpp"
 #    testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_psss_AA.ey.cpp"
 #    testFile = "testData/overlapGradients/d_overlap10.ey.cpp"
-    testFile = "overlapGradientParsedForm/d_overlap10.ey.cpp"
-#    testFile = "testData/d1_ee/d_ee_ppss_A4.ey.cpp"
+#    testFile = "overlapGradientParsedForm/d_overlap10.ey.cpp"
+    testFile = "testData/d1_ee/d_ee_ppss_A4.ey.cpp"
 #    testFile = "/home/michal/Projects/hessianIsomorphism/testData/gto_d1_kit/d_ee_dddd.ey.cpp"
 #    testFile = "/home/michal/Projects/hessianIsomorphism/testData/vneGradients/d_ne_dd_A0.ey.cpp"
 #    testFile = "/home/michal/Projects/niedoida/gto_d1_kit/src/d_ee_dddd_A3.ey.cpp"
@@ -323,13 +323,13 @@ if __name__ == "__main__":
     cppParser.parse()
 #    cppParser.saveGraphFunction()
 #    cppParser.loadGraphFunction()
-#    varValues  = { "ae" : 1.1, "xA" : 1.1, "yA" : 3.3, "zA" : 1.6, "be" : 1.7,
-#                  "xB" : -0.9, "yB" : 0.3, "zB" : 0.6, "ce" : 1.3, "xC" : 1.4, 
-#                  "yC" : 1.8, "zC" : 1.2, "de" : 1.3, "xD" : -1.1, "yD" : 1.9, 
-#                  "zD" : 1.3, "bs" : "{ 0.7, 1.3, 1.5, 1.1, 0.8, 0.2, 0.15, 0.12, 0.1, 0.05}" }
+    varValues  = { "ae" : 1.1, "xA" : 1.1, "yA" : 3.3, "zA" : 1.6, "be" : 1.7,
+                  "xB" : -0.9, "yB" : 0.3, "zB" : 0.6, "ce" : 1.3, "xC" : 1.4, 
+                  "yC" : 1.8, "zC" : 1.2, "de" : 1.3, "xD" : -1.1, "yD" : 1.9, 
+                  "zD" : 1.3, "bs" : "{ 0.7, 1.3, 1.5, 1.1, 0.8, 0.2, 0.15, 0.12, 0.1, 0.05}" }
     
-    varValues  = { "ae" : 1.1, "xAB" : 1.1, "yAB" : 3.3, "zAB" : 1.6, "be" : 1.7,
-                  "cc" : 1.3, "matrix_size" : 3, "Ai" : 0, "Bi" : 1}
+#    varValues  = { "ae" : 1.1, "xAB" : 1.1, "yAB" : 3.3, "zAB" : 1.6, "be" : 1.7,
+#                  "cc" : 1.3, "matrix_size" : 3, "Ai" : 0, "Bi" : 1}
     cppParser.writeTest("dupa.cpp", varValues, testCase="prediction")
 #    cppParser.writeTest("dupa.cpp", testCase="performance")
     

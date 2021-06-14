@@ -62,12 +62,20 @@ class GraphParser:
         self.debug = False
         
         self.forcePrimeLevel = 0
-        self.strongDivisionReduction = True
+        self.strongDivisionReduction = False
         
         self.constantPrefix = "cnst"
         
         if source and lastLine:
             self.read(source, lastLine)
+            
+    def addUnityNodeIfNotExisting(self):
+        if not "1" in self.graph.nodes:
+            self.graph.add_node("1",  variable = "1", kind = "integer", level = 0)
+            self.createIntegerForm("1", 1)
+            print("dodaje jedynke")
+        else:
+            print("jedynka istnieje")
             
     def cleanLog(self):
         logF = open(self.scrLog, 'w')
@@ -490,14 +498,18 @@ class GraphParser:
             key = canonicalForm.generateKey()
             
             if key in self.key2uniqueOperatorNodes and not forceNewNode:
-                return self.key2uniqueOperatorNodes[key]
+                existingNode = self.key2uniqueOperatorNodes[key]
+                self.graph.nodes[existingNode]["form"] = canonicalForm
+                return existingNode
         
         elif operatorName in [ "+", "*", "-" ] and level > self.forcePrimeLevel :
             canonicalForm = self.generateCanonicalForm(operatorName, inputs)
             key = canonicalForm.generateKey()
                 
             if key in self.key2uniqueOperatorNodes and not forceNewNode:
-                return self.key2uniqueOperatorNodes[key]
+                existingNode = self.key2uniqueOperatorNodes[key]
+                self.graph.nodes[existingNode]["form"] = canonicalForm
+                return existingNode
         else:
             simpleKey = "_".join(sorted(inputs)) + "_"+operatorName
             
@@ -543,12 +555,18 @@ class GraphParser:
             canonicalForm = oldCanonicalForm
             key = canonicalForm.generateKey()
             if key in self.key2uniqueOperatorNodes and not forceNewNode:
-                return self.key2uniqueOperatorNodes[key]
+                existingNode = self.key2uniqueOperatorNodes[key]
+                self.graph.nodes[existingNode]["form"] = canonicalForm
+                return existingNode
+            
         elif operatorName == "-"  and level > self.forcePrimeLevel:
             canonicalForm = self.generateCanonicalForm(operatorName, inputs)
             key = canonicalForm.generateKey()
+            
             if key in self.key2uniqueOperatorNodes and not forceNewNode:
-                return self.key2uniqueOperatorNodes[key]
+                existingNode = self.key2uniqueOperatorNodes[key]
+                self.graph.nodes[existingNode]["form"] = canonicalForm
+                return existingNode
             
         elif operatorName == "/" and inputs[0] != "1" and level > self.forcePrimeLevel and self.strongDivisionReduction :
             devider = self.insertNewAssimetricOperator( "/", [ "1" , inputs[1] ], "infix" )
@@ -974,7 +992,8 @@ class GraphParser:
         self.log("Rebuild graph start...")
         oldGraph, self.graph = self.graph, nx.DiGraph()
 #        oldVariables2nodes = deepcopy(self.variables2nodes)
-        
+        self.addUnityNodeIfNotExisting()
+            
         self.variables2nodes = {}
         self.key2uniqueOperatorNodes = {}
         self.notCanonicalKey2Node = {}
@@ -984,7 +1003,9 @@ class GraphParser:
 #        self.subformFactory.clean()
         
         nodes = list(nx.topological_sort(oldGraph))
-        usedOldForms = 0
+
+        node2expectedSuccesorsNo = defaultdict(int)
+
         for node in nodes:
             kind = oldGraph.nodes[node]["kind"]
             
@@ -999,15 +1020,6 @@ class GraphParser:
                 symmetry = oldGraph.nodes[node]["symmetric"]
                 inputsList = self.prepareInputList(oldGraph, node)
                 
-#                if "form" in oldGraph.nodes[node]:
-#                    usedOldForms += 1
-#                    if symmetry:
-#                        newNode = self.insertNewOperator( oldGraph.nodes[node]["operator"], 
-#                                                         inputsList , oldGraph.nodes[node]["fix"], False, oldGraph.nodes[node]["form"] )
-#                    else:
-#                        newNode = self.insertNewAssimetricOperator(oldGraph.nodes[node]["operator"], 
-#                                                                   inputsList, oldGraph.nodes[node]["fix"], False, oldGraph.nodes[node]["form"] )
-#                else:
                 if symmetry:
                     newNode = self.insertNewOperator( oldGraph.nodes[node]["operator"], 
                                                      inputsList , oldGraph.nodes[node]["fix"] )
@@ -1016,6 +1028,16 @@ class GraphParser:
                                                                inputsList, oldGraph.nodes[node]["fix"] )
                 
                     
+                node2expectedSuccesorsNo[newNode] += len(list(oldGraph.successors(node)))
+                for pred in self.graph.predecessors(newNode):
+                    if self.graph.nodes[pred]["kind"] in [ "input", "output", "integer" ]:
+                        continue
+                    
+                    successorsNo = len(list(self.graph.successors(pred)))
+                    if successorsNo == node2expectedSuccesorsNo[pred] and "form" in self.graph.nodes[pred]:
+                        del self.graph.nodes[pred]["form"]
+                    
+                
                 self.graph.nodes[newNode]["variable"] = oldGraph.nodes[node]["variable"]
                 self.graph.nodes[newNode]["kind"] = oldGraph.nodes[node]["kind"]
                 #tu jest blad
@@ -1042,7 +1064,6 @@ class GraphParser:
                 self.subformFactory.subformId2node[subformId] = newNode
                 self.subformFactory.node2subformId[newNode] = subformId
                 
-        print("Wykorzystano dotychczas wygenerowane formy: ", usedOldForms)
         print("stan operatorow: ")
         print(self.operators)
         self.log("Rebuild graph finished")

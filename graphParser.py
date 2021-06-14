@@ -28,8 +28,9 @@ key2uniqueOperatorNodes - [klucz kanoniczny] -> odpowiadajacy wierzcholek,
 notCanonicalNode2key - istotne dla wierzcholkow, dla ktorych generowane sa wierzcholko pierwsze (inne operatory niz +,-,*)
 """
 class GraphParser:
-    def __init__(self, source = None, lastLine = None):
+    def __init__(self, source = None, lastLine = None, variables2freeze = []):
         self.name = None
+        self.variables2freeze = variables2freeze
         
         self.externalFunctionNames = set([])
         self.arguments = []
@@ -73,9 +74,6 @@ class GraphParser:
         if not "1" in self.graph.nodes:
             self.graph.add_node("1",  variable = "1", kind = "integer", level = 0)
             self.createIntegerForm("1", 1)
-            print("dodaje jedynke")
-        else:
-            print("jedynka istnieje")
             
     def cleanLog(self):
         logF = open(self.scrLog, 'w')
@@ -189,6 +187,7 @@ class GraphParser:
                 if not ";" in expr:
                     raise Exception("Invalid expression!")
                     
+                    
                 expr = expr.replace(";", "")
                 newVar = lineS[0]
                 newVar = newVar.split()[-1]
@@ -197,6 +196,10 @@ class GraphParser:
                 if not bottomNode:
                     print(line)
                 self.graph.nodes[bottomNode]["variable"] = newVar
+                
+                if newVar in self.variables2freeze:
+                    self.createPrimeForm(bottomNode)
+                    self.log("Atomized variable: "+ newVar)
                 
                 self.variables2nodes[newVar] = bottomNode
                 
@@ -992,26 +995,30 @@ class GraphParser:
         self.log("Rebuild graph start...")
         oldGraph, self.graph = self.graph, nx.DiGraph()
 #        oldVariables2nodes = deepcopy(self.variables2nodes)
+        self.log("Nodes to process: "+str(len(oldGraph.nodes)))
         self.addUnityNodeIfNotExisting()
             
         self.variables2nodes = {}
         self.key2uniqueOperatorNodes = {}
         self.notCanonicalKey2Node = {}
         self.operators = { }
-        self.subformFactory.subformId2node = {}
+#        self.subformFactory.subformId2node = {}
+        self.subformFactory.clean()
         oldNode2subformId, self.subformFactory.node2subformId = self.subformFactory.node2subformId, {}
 #        self.subformFactory.clean()
         
         nodes = list(nx.topological_sort(oldGraph))
 
         node2expectedSuccesorsNo = defaultdict(int)
-
+        nodesProcessed = 0
+        
         for node in nodes:
             kind = oldGraph.nodes[node]["kind"]
             
             if kind == "input":
                 newNode = node
-                self.graph.add_node(newNode, variable = oldGraph.nodes[node]["variable"] , kind = "input",  level = 0, form = oldGraph.nodes[node]["form"] )
+                self.graph.add_node(newNode, variable = oldGraph.nodes[node]["variable"] , kind = "input",  level = 0 )
+                self.createPrimeForm(newNode)
                 self.key2uniqueOperatorNodes[oldGraph.nodes[node]["form"].generateKey()] = newNode
             elif kind == "integer":
                 newNode = oldGraph.nodes[node]["variable"]
@@ -1033,19 +1040,35 @@ class GraphParser:
                     if self.graph.nodes[pred]["kind"] in [ "input", "output", "integer" ]:
                         continue
                     
+                    if not self.graph.nodes[pred]["operator"] in [ "+", "-", "*" ]:
+                        continue
+                    
                     successorsNo = len(list(self.graph.successors(pred)))
                     if successorsNo == node2expectedSuccesorsNo[pred] and "form" in self.graph.nodes[pred]:
                         del self.graph.nodes[pred]["form"]
                     
                 
                 self.graph.nodes[newNode]["variable"] = oldGraph.nodes[node]["variable"]
+                
+                forceNewPrime = False
+                if self.graph.nodes[newNode]["variable"] in self.variables2freeze:
+                    forceNewPrime = True
+                    
                 self.graph.nodes[newNode]["kind"] = oldGraph.nodes[node]["kind"]
-                #tu jest blad
+                
                 if "variables" in oldGraph.nodes[node]:
                     if "variables" in self.graph.nodes[newNode]:
                         self.graph.nodes[newNode]["variables"] += oldGraph.nodes[node]["variables"]
                     else:
                         self.graph.nodes[newNode]["variables"] = oldGraph.nodes[node]["variables"]
+                        
+                    for var in self.graph.nodes[newNode]["variables"] :
+                        if var in self.variables2freeze:
+                            forceNewPrime = True
+                            break
+                        
+                if forceNewPrime:
+                    self.createPrimeForm(newNode)
                     
                 if "origin" in oldGraph.nodes[node]:
                     self.graph.nodes[newNode]["origin"] = oldGraph.nodes[node]["origin"]
@@ -1063,6 +1086,11 @@ class GraphParser:
                 
                 self.subformFactory.subformId2node[subformId] = newNode
                 self.subformFactory.node2subformId[newNode] = subformId
+                
+            nodesProcessed += 1
+            
+            if nodesProcessed % 500 == 0:
+                self.log("Nodes processed: "+str(nodesProcessed))
                 
         print("stan operatorow: ")
         print(self.operators)

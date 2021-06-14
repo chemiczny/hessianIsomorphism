@@ -88,8 +88,8 @@ def mergePotentialFormMultWithDivisiblePolynomial( potentialFormMult, divisibleP
     return newPotentialForm
 
 class GraphOptimizer(GraphParser, GraphAnalyser):
-    def __init__(self, source = None, lastLine = None):
-        GraphParser.__init__(self, source, lastLine)
+    def __init__(self, source = None, lastLine = None, variables2freeze = []):
+        GraphParser.__init__(self, source, lastLine, variables2freeze)
         
         self.nodes2expand = []
         self.monomialKey2node = {}

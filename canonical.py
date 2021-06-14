@@ -6,7 +6,7 @@ Created on Fri Nov 29 11:01:07 2019
 @author: michal
 """
 import pickle
-#import hashlib 
+import hashlib 
 
 class CanonicalSubformFactory:
     def __init__(self):
@@ -124,11 +124,11 @@ class CanonicalForm:
         self.subforms = {}
     
     def generateKey(self):
-        return hash(frozenset(self.subforms.items()))
+#        return hash(frozenset(self.subforms.items()))
+        return int(hashlib.md5(str(self.subforms.items()).encode()).hexdigest(), 16)
 #        keyList = []
 #        
 #        for subKey in self.subforms:
-##            print("klucz: ", subKey)
 #            coeff = self.subforms[subKey]
 #            
 #            newKey = str(subKey)
@@ -138,7 +138,6 @@ class CanonicalForm:
 #            
 #            keyList.append( newKey )
 #            
-##        print(keyList)
 #        return int(hashlib.md5(("+".join(sorted( keyList ))).encode()).hexdigest(), 16)
     
     

@@ -1591,7 +1591,10 @@ class GraphOptimizer(GraphParser, GraphAnalyser):
             node = seeds.pop()
             
             predecessors = list(self.graph.predecessors(node))
+            key = self.graph.nodes[node]["canonicalKey"]
             self.graph.remove_node(node)
+            del self.key2uniqueOperatorNodes[key]
+            
             deletedAtoms += 1
             
             for p in predecessors:

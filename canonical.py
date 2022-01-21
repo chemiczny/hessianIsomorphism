@@ -125,7 +125,7 @@ class CanonicalForm:
     
     def generateKey(self):
 #        return hash(frozenset(self.subforms.items()))
-        return int(hashlib.md5(str(self.subforms.items()).encode()).hexdigest(), 16)
+        return int(hashlib.md5(str(sorted(self.subforms.items())).encode()).hexdigest(), 16)
 #        keyList = []
 #        
 #        for subKey in self.subforms:

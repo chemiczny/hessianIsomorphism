@@ -19,7 +19,7 @@ varValues  = { "ae" : 1.1, "xA" : 1.1, "yA" : 3.3, "zA" : 1.6, "be" : 1.7,
               "yC" : 1.8, "zC" : 1.2, "de" : 1.3, "xD" : -1.1, "yD" : 1.9, 
               "zD" : 1.3, "bs" : "{ 0.7, 1.3, 1.5, 1.1, 0.8, 0.2, 0.15, 0.12, 0.1, 0.05}" }
 
-frozenVariables = set([ "xAB", "yAB", "zAB", "xCD", "yCD", "zCD" ])
+frozenVariables = set([ "xAB", "yAB", "zAB", "xCD", "yCD", "zCD", "xP" , "yP", "zP", "xQ", "yQ", "zQ", "p", "q" ])
 #frozenVariables = []
 cppParser = CppParser(testFile, variables2freeze=frozenVariables)
 cppParser.parse()

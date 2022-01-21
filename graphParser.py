@@ -10,6 +10,8 @@ import shlex
 import matplotlib.pyplot as plt
 from collections import defaultdict
 
+import hashlib 
+
 from canonical import CanonicalSubformFactory, CanonicalForm
 from canonical import addForms, multiplyForms, subtractForms, reverseFormSign
 
@@ -63,7 +65,7 @@ class GraphParser:
         self.debug = False
         
         self.forcePrimeLevel = 0
-        self.strongDivisionReduction = False
+        self.strongDivisionReduction = True
         
         self.constantPrefix = "cnst"
         
@@ -514,7 +516,9 @@ class GraphParser:
                 self.graph.nodes[existingNode]["form"] = canonicalForm
                 return existingNode
         else:
-            simpleKey = "_".join(sorted(inputs)) + "_"+operatorName
+            inputKeys = [ str(self.graph.nodes[n]["form"].generateKey()) for n in inputs ]
+            inputKeys.append(operatorName)
+            simpleKey = int(hashlib.md5(str(sorted(inputKeys)).encode()).hexdigest(), 16)
             
             if simpleKey in self.notCanonicalKey2Node and not forceNewNode:
                 return self.notCanonicalKey2Node[simpleKey]
@@ -576,7 +580,10 @@ class GraphParser:
             return self.insertNewOperator( "*", [ inputs[0], devider ], "infix" )
             
         else:
-            simpleKey = "_".join(sorted(inputs)) + "_"+operatorName
+#            simpleKey = "_".join(sorted(inputs)) + "_"+operatorName
+            inputKeys = [ str(self.graph.nodes[n]["form"].generateKey()) for n in inputs ]
+            inputKeys.append(operatorName)
+            simpleKey = int(hashlib.md5(str(inputKeys).encode()).hexdigest(), 16)
             if simpleKey in self.notCanonicalKey2Node and not forceNewNode:
                 return self.notCanonicalKey2Node[simpleKey]
         
@@ -991,7 +998,8 @@ class GraphParser:
     ta funkcja powinna je usunac. Kazdy wierzcholek starego grafu ma modyfikowany atrybut variable -> nazwa wierzcholka w nowym grafie.
     Czy moze zmienic sie znaczenie liczb pierwszych w subform factory? Inputy i asymetryczne operatory rowniez powinny miec kopiowane formy?
     """        
-    def rebuildGraph(self):
+    def rebuildGraph(self, deleteUnnecessaryForms = False):
+        #variable w externalGraph - sluzy do przechowania nazw wierzcholkow
         self.log("Rebuild graph start...")
         oldGraph, self.graph = self.graph, nx.DiGraph()
 #        oldVariables2nodes = deepcopy(self.variables2nodes)
@@ -1020,9 +1028,16 @@ class GraphParser:
                 self.graph.add_node(newNode, variable = oldGraph.nodes[node]["variable"] , kind = "input",  level = 0 )
                 self.createPrimeForm(newNode)
                 self.key2uniqueOperatorNodes[oldGraph.nodes[node]["form"].generateKey()] = newNode
+                
+                if "origin" in oldGraph.nodes[node]:
+                    self.graph.nodes[newNode]["origin"] = oldGraph.nodes[node]["origin"]
+                    
             elif kind == "integer":
                 newNode = oldGraph.nodes[node]["variable"]
                 self.graph.add_node(newNode, variable = oldGraph.nodes[node]["variable"] , kind = "integer",  level = 0, form = oldGraph.nodes[node]["form"] )
+                
+                if "origin" in oldGraph.nodes[node]:
+                    self.graph.nodes[newNode]["origin"] = oldGraph.nodes[node]["origin"]
             else:
                 symmetry = oldGraph.nodes[node]["symmetric"]
                 inputsList = self.prepareInputList(oldGraph, node)
@@ -1036,6 +1051,7 @@ class GraphParser:
                 
                     
                 node2expectedSuccesorsNo[newNode] += len(list(oldGraph.successors(node)))
+                
                 for pred in self.graph.predecessors(newNode):
                     if self.graph.nodes[pred]["kind"] in [ "input", "output", "integer" ]:
                         continue
@@ -1044,7 +1060,7 @@ class GraphParser:
                         continue
                     
                     successorsNo = len(list(self.graph.successors(pred)))
-                    if successorsNo == node2expectedSuccesorsNo[pred] and "form" in self.graph.nodes[pred]:
+                    if successorsNo == node2expectedSuccesorsNo[pred] and "form" in self.graph.nodes[pred] and deleteUnnecessaryForms :
                         del self.graph.nodes[pred]["form"]
                     
                 
@@ -1104,10 +1120,11 @@ class GraphParser:
         originDict = defaultdict(int)
         interfaceDict = defaultdict(int)
             
+        kindsWithoutOrigin = set([])
         for node in self.graph.nodes:
             if "origin" in self.graph.nodes[node]:
                 originSet = self.graph.nodes[node]["origin"]
-                key = "-".join(sorted(list( originSet )))
+                key = self.graph.nodes[node]["kind"] + "-".join(sorted(list( originSet )))
                 
                 originDict[key] += 1
                 
@@ -1119,28 +1136,40 @@ class GraphParser:
                 sKeys = set([])
                 for s in successors:
                     originSet = self.graph.nodes[s]["origin"]
-                    SKey = "-".join(sorted(list( originSet ))) 
+                    SKey = self.graph.nodes[node]["kind"] +  "-".join(sorted(list( originSet ))) 
                     sKeys.add(SKey)
                     
                 if len(sKeys) == 1 and list(sKeys)[0] == key:
                     continue
                 
+                sKeys.discard(key)
                 interfaceKey = key + ":" + "+".join(sorted(list(sKeys)))
                 interfaceDict[interfaceKey] += 1
+                
+            else:
+                kindsWithoutOrigin.add( self.graph.nodes[node]["kind"] )
                     
         print("Origin status:")
-        for key in originDict:
+        total = 0
+        for key in sorted(list(originDict.keys())):
             print(key, originDict[key])
+            total += originDict[key]
+        print("total: ", total, len(self.graph.nodes))
+        print("node without origin: ", kindsWithoutOrigin)
             
         print("Interface nodes status:")
         for key in interfaceDict:
             print(key, interfaceDict[key])
         
     def mergeWithExternalGraph(self, externalGraph, externalName):
+        #variable w externalGraph - sluzy do przechowania nazw wierzcholkow
         self.log("Merging graph start...")
        
         self.externalFunctionNames.add(externalName)
         nodes = list(nx.topological_sort(externalGraph))
+#        external2internalNode = {}
+        
+#        nodesNo = len(self.graph.nodes)
 
         for node in nodes:
             kind = externalGraph.nodes[node]["kind"]
@@ -1149,6 +1178,7 @@ class GraphParser:
                 newNode = node
                 variable = externalGraph.nodes[node]["variable"]
                 floatNode = isfloat( variable )
+#                external2internalNode[node] = node
                 if not newNode in self.graph.nodes and not floatNode:
                     raise Exception("Not recognised input node from external graph")
                     
@@ -1156,15 +1186,47 @@ class GraphParser:
                     self.graph.add_node(variable, variable = variable, kind = "input", level = 0)
                     self.createPrimeForm(variable)
                     
+                if variable in self.graph.nodes:
+                    if "origin" in self.graph.nodes[newNode]:
+                        self.graph.nodes[variable]["origin"].add(externalName)
+                    else:
+                        self.graph.nodes[variable]["origin"] = set([externalName])
+#                    external2internalNode[node] = variable
+                    
             elif kind == "integer":
                 newNode = externalGraph.nodes[node]["variable"]
                 variable = externalGraph.nodes[node]["variable"]
+#                external2internalNode[node] = newNode
+                
                 if not newNode in self.graph.nodes:
                     self.graph.add_node(variable, variable = variable, kind = "integer", level = 0)
                     self.createIntegerForm(variable, int(variable))
+                    print("tworzony integer")
+                    
+                if newNode in self.graph.nodes:
+                    if "origin" in self.graph.nodes[newNode]:
+                        self.graph.nodes[variable]["origin"].add(externalName)
+                    else:
+                        self.graph.nodes[variable]["origin"] = set([externalName])
+#                    external2internalNode[node] = variable
             else:
                 symmetry = externalGraph.nodes[node]["symmetric"]
-                inputsList = self.prepareInputList(externalGraph, node)
+                
+#                internalPrecessors = []
+#                for externalPredecessor in externalGraph.predecessors(node):
+#                    internalPrecessors.append( external2internalNode[externalPredecessor] )
+                        
+#                inputsList = self.prepareInputListForExternal(self.graph, externalGraph, external2internalNode, node)
+                inputsList = self.prepareInputList( externalGraph, node )
+                
+                
+#                if None in inputsList:
+#                    raise Exception("None among inputs")
+                
+#                newNodesNo = len(self.graph.nodes)
+#                if newNodesNo > nodesNo:
+#                    print(symmetry)
+#                    raise Exception("tego nie rozumiem")
                 
                 if symmetry:
                     newNode = self.insertNewOperator( externalGraph.nodes[node]["operator"], 
@@ -1173,6 +1235,36 @@ class GraphParser:
                     newNode = self.insertNewAssimetricOperator(externalGraph.nodes[node]["operator"], 
                                                                inputsList, externalGraph.nodes[node]["fix"] )
                 
+#                external2internalNode[node] = newNode
+#                newNodesNo = len(self.graph.nodes)
+#                if newNodesNo > nodesNo:
+#                    print(symmetry)
+#                    print(newNode)
+#                    print("poziom: ", self.graph.nodes[newNode]["level"])
+#                    allPredecessors = set([])
+#                    allPredecessorsKinds = set([])
+#                    predecessors2analyse = set(self.graph.predecessors(newNode) )
+#                    while predecessors2analyse:
+#                        newPredecessor = predecessors2analyse.pop()
+#                        allPredecessors.add(newPredecessor)
+#                        allPredecessorsKinds.add( str(self.graph.nodes[newPredecessor]["origin"]) )
+#                        predecessors2analyse |= set(self.graph.predecessors(newPredecessor) )
+#                    
+#                    print("all predecessors ", allPredecessors)
+#                    print("kinds", allPredecessorsKinds)
+#                    print(list(self.graph.predecessors(newNode)))
+#                    
+#                    actualPredecessors = list(self.graph.predecessors(newNode))
+#                    siblings = set( self.graph.successors( actualPredecessors.pop() ) )
+#                    
+#                    while actualPredecessors:
+#                        siblings &= set( self.graph.successors( actualPredecessors.pop() ) )
+#                        
+#                    print("blizniaki: ", siblings)
+#                    for s in siblings:
+#                        print( self.graph.nodes[s]["form"].subforms )
+#                    
+#                    raise Exception("no i chuj")
                 
                 kind = externalGraph.nodes[node]["kind"]
                 self.graph.nodes[newNode]["kind"] =  kind
@@ -1197,6 +1289,7 @@ class GraphParser:
         self.log("Merging graphs finished")
         
     def prepareInputList(self, graph, node):
+        #hehe w variable musi byc nazwa odpowiednich wierzcholkow
         predecessors = list(graph.predecessors( node))
                 
         if not predecessors:
@@ -1223,6 +1316,37 @@ class GraphParser:
         else:
             for pred in predecessor2fold:
                 inputList += predecessor2fold[pred] * [ graph.nodes[pred]["variable"]  ]
+ 
+                
+        return inputList
+    
+    def prepareInputListForExternal(self, graph, externalGraph, external2internal, node):
+        predecessors = list(externalGraph.predecessors( node))
+                
+        if not predecessors:
+            print(node)
+            raise Exception("Node without predecessors!")
+        
+        order2predecessor = {}
+        
+        if not externalGraph.nodes[node]["symmetric"]:
+            for pred in predecessors:                
+                order2predecessor[ externalGraph[pred][node]["order"] ] = external2internal[pred]
+                    
+        predecessor2fold = {}
+        for pred in predecessors:
+            predecessor2fold[ external2internal[pred] ] =  externalGraph[pred][node]["fold"]
+        
+        inputList = []
+        
+        if order2predecessor:
+            for order in sorted(list(order2predecessor.keys())):
+                pred = order2predecessor[order]
+                inputList += predecessor2fold[pred] * [ pred ]
+                
+        else:
+            for pred in predecessor2fold:
+                inputList += predecessor2fold[pred] * [ pred ]
  
                 
         return inputList

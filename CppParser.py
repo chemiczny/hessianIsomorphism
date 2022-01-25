@@ -55,18 +55,28 @@ class CppParser:
 #        newFunction.greedySchemeSum()
 #        newFunction.rebuildGraph()
 #        newFunction.strongDivisionReduction = True
-        newFunction.findDeadEnds()
+#        newFunction.findDeadEnds()
+        
+#        newFunction.rebuildGraph()
+        
+        #standard procedure start
         newFunction.rebuildGraph()
-        newFunction.strongDivisionReduction = True
-        newFunction.rebuildGraph()
         newFunction.findDeadEnds()
+        if len(newFunction.graph.nodes) < 300000:
+            newFunction.strongDivisionReduction = True
+            newFunction.rebuildGraph()
+            newFunction.findDeadEnds()
+#        newFunction.rebuildGraph()
+        #standard procedure ends
+        
+        
 #        newFunction.greedySchemeGlobal()
 #        newFunction.greedySchemeSum()
 #        newFunction.greedyScheme()
 
 #        newFunction.dumpNodeFormData('+175op', "beforeRebuild.log")
 #        newFunction.cleanForms()
-#        newFunction.rebuildGraph()
+        
 #        newFunction.findDeadEnds()
 #        newFunction.rebuildGraph()
 #        newFunction.findAlternativePathProt()
@@ -311,16 +321,17 @@ if __name__ == "__main__":
 #    testFile = "testData/short.cpp"
 #    testFile = "testData/d2_ne_ss_AA.ey.cpp"
 #    testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_pdpd_AB.ey.cpp"
-    testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_psss_AA.ey.cpp"
+    testFile = "testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee_psss_AC.ey.cpp"
 #    testFile = "testData/overlapGradients/d_overlap10.ey.cpp"
 #    testFile = "overlapGradientParsedForm/d_overlap10.ey.cpp"
-#    testFile = "testData/d1_ee/d_ee_ppps_A4.ey.cpp"
+#    testFile = "testData/d1_ee/d_ee_ddps_A4.ey.cpp"
 #    testFile = "/home/michal/Projects/hessianIsomorphism/testData/gto_d1_kit/d_ee_dddd.ey.cpp"
 #    testFile = "/home/michal/Projects/hessianIsomorphism/testData/vneGradients/d_ne_dd_A0.ey.cpp"
 #    testFile = "/home/michal/Projects/niedoida/gto_d1_kit/src/d_ee_dddd_A3.ey.cpp"
 #    testFile = "testData/d2_ee_ppps_AA.ey.cpp"
 #    frozenVariables = set([ "xAB", "yAB", "zAB", "xCD", "yCD", "zCD" ])
-    frozenVariables = []
+#    frozenVariables = []
+    frozenVariables = set([ "xAB", "yAB", "zAB", "xCD", "yCD", "zCD", "xP" , "yP", "zP", "xQ", "yQ", "zQ", "p", "q" ])
     cppParser = CppParser(testFile, variables2freeze=frozenVariables)
     cppParser.parse()
 #    cppParser.saveGraphFunction()

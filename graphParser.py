@@ -7,7 +7,7 @@ Created on Mon May 20 10:34:48 2019
 """
 import networkx as nx
 import shlex
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from collections import defaultdict
 
 import hashlib 
@@ -65,7 +65,7 @@ class GraphParser:
         self.debug = False
         
         self.forcePrimeLevel = 0
-        self.strongDivisionReduction = True
+        self.strongDivisionReduction = False
         
         self.constantPrefix = "cnst"
         
@@ -998,7 +998,7 @@ class GraphParser:
     ta funkcja powinna je usunac. Kazdy wierzcholek starego grafu ma modyfikowany atrybut variable -> nazwa wierzcholka w nowym grafie.
     Czy moze zmienic sie znaczenie liczb pierwszych w subform factory? Inputy i asymetryczne operatory rowniez powinny miec kopiowane formy?
     """        
-    def rebuildGraph(self, deleteUnnecessaryForms = False):
+    def rebuildGraph(self, deleteUnnecessaryForms = True):
         #variable w externalGraph - sluzy do przechowania nazw wierzcholkow
         self.log("Rebuild graph start...")
         oldGraph, self.graph = self.graph, nx.DiGraph()
@@ -1143,7 +1143,7 @@ class GraphParser:
                     continue
                 
                 sKeys.discard(key)
-                interfaceKey = key + ":" + "+".join(sorted(list(sKeys)))
+                interfaceKey = key + "->" + "+".join(sorted(list(sKeys)))
                 interfaceDict[interfaceKey] += 1
                 
             else:

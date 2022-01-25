@@ -279,12 +279,12 @@ class CppParser:
         
     def saveGraphFunction(self):
         file2dump = open(self.graphPickle, 'wb')
-        pickle.dump(self.functions, file2dump)
+        pickle.dump(self.function, file2dump)
         file2dump.close()
     
     def loadGraphFunction(self):
         infile = open(self.graphPickle,'rb')
-        self.functions = pickle.load(infile)
+        self.function = pickle.load(infile)
         infile.close()
         
 #    def initSubgraphs(self, minSup):

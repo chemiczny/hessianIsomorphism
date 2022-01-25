@@ -1035,7 +1035,7 @@ class GraphParser:
             elif kind == "integer":
                 newNode = oldGraph.nodes[node]["variable"]
                 self.graph.add_node(newNode, variable = oldGraph.nodes[node]["variable"] , kind = "integer",  level = 0, form = oldGraph.nodes[node]["form"] )
-                
+                self.key2uniqueOperatorNodes[oldGraph.nodes[node]["form"].generateKey()] = newNode
                 if "origin" in oldGraph.nodes[node]:
                     self.graph.nodes[newNode]["origin"] = oldGraph.nodes[node]["origin"]
             else:

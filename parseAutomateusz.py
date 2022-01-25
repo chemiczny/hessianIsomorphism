@@ -7,10 +7,9 @@ Created on Wed Feb 12 15:50:23 2020
 """
 
 from glob import glob
-from os.path import isdir, join, basename
-from os import makedirs
+from os.path import isdir, join, basename, isfile
+from os import makedirs, remove
 from CppParser import CppParser
-import logging
 
 automateuszFiles = glob("testData/automateusz_cpp_backup_low_level_optimized_ey/d2_ee*ey.cpp")
 parsedDir = "automateuszParsedForm"
@@ -22,14 +21,18 @@ if not isdir(parsedDir):
 if not isdir(pickleDir):
     makedirs(pickleDir)
     
-logging.basicConfig(filename='divisionReductionStatus.log', level=logging.INFO)
-for automateuszFile in automateuszFiles:
-    pickleFile = join(pickleDir, basename(automateuszFile.replace("ey.cpp", "pickle") ) )
-    newFile = join( parsedDir, basename(automateuszFile) , pickleFile )
+if isfile('divisionReductionStatus.log'):
+    remove('divisionReductionStatus.log')
     
-    cppParser = CppParser( automateuszFile )
+for automateuszFile in sorted(automateuszFiles, reverse = True):
+    pickleFile = join(pickleDir, basename(automateuszFile).replace("ey.cpp", "pickle")  )
+    newFile = join( parsedDir, basename(automateuszFile) )
+    frozenVariables = set([ "xAB", "yAB", "zAB", "xCD", "yCD", "zCD", "xP" , "yP", "zP", "xQ", "yQ", "zQ", "p", "q" ])
+    cppParser = CppParser( automateuszFile, frozenVariables, pickleFile  )
     cppParser.parse()
     cppParser.rewriteCppFile(newFile)
     cppParser.saveGraphFunction()
     
-    logging.info( "{name} {status}".format( name = basename(automateuszFile ), status = cppParser.function.strongDivisionReduction ))
+    logName = open('divisionReductionStatus.log', "a+")
+    logName.write( "{name} {status}\n".format( name = pickleFile, status = cppParser.function.strongDivisionReduction ))
+    logName.close()
